@@ -1,15 +1,18 @@
 ---
 name: migrate
-description: 'Migrate an existing service running on another host into the /services/ controller layout. Use when the user says "migrate <service> from <host>", "move the old <thing> over", or similar. Covers identification, read-only inventory of the old deployment, schema adaptation, user-run data copy, and start-up verification.'
+description: 'Migrate an existing service running on another host into this server''s controller-managed layout under $BASE_DIR. Use when the user says "migrate <service> from <host>", "move the old <thing> over", or similar. Covers identification, read-only inventory of the old deployment, schema adaptation, user-run data copy, and start-up verification.'
 ---
 
-# Migrate an Existing Service into /services/
+# Migrate an Existing Service into `$BASE_DIR`
 
 ## When to Use
 
 The user wants to bring a service that currently runs on another host (docker-compose, plain
 docker, systemd, bare files — anything) into this server's controller-managed layout under
-`/services/`.
+`$BASE_DIR`.
+
+No existing deployment to move — just new software to set up from scratch? Use
+[create-service](../create-service/SKILL.md) instead.
 
 ## Process at a glance
 
@@ -25,6 +28,9 @@ docker, systemd, bare files — anything) into this server's controller-managed 
    commands. Claude does **not** execute them.
 6. **Verify + finalize + start.** Claude sanity-checks the copied data, applies any post-start
    fix-ups (e.g. `trusted_proxies`, runtime config), brings the stack up, and tails logs.
+
+Execute via the step-by-step [CHECKLIST.md](CHECKLIST.md) — tick it top-to-bottom; the phase
+sections below hold the rules and context each step references.
 
 ## Rules of engagement (read these before doing anything)
 
@@ -67,7 +73,7 @@ service without further confirmation.
 ## Phase 1 — Identify the service and pick a template
 
 ```bash
-ls /services/.controller/templates/
+ls $BASE_DIR/.controller/templates/
 ```
 
 If a template fits the service (`nextcloud`, `bookstack`, `wordpress`, `pretix`, …), use it via
@@ -123,7 +129,7 @@ Common adaptations vs. the source:
 - Rename env vars to template conventions: `NEXTCLOUD_DOMAIN → DOMAIN`,
   `MARIADB_VERSION → MARIA_DB_VERSION`, etc. The new templates use generic names so the same
   compose snippets work across services.
-- Drop `BORG_*` from the per-service `.env` — they live in `/services/.env` now and are
+- Drop `BORG_*` from the per-service `.env` — they live in `$BASE_DIR/.env` now and are
   inherited.
 - Drop `container_name:`, comment out unneeded `ports:`, switch volumes to `./volumes/...`, and
   swap host-mode for the two-network model (`default` + external `traefik`).
@@ -132,15 +138,18 @@ Common adaptations vs. the source:
   and drop the host port mapping — unless the protocol is UDP (TURN, WebRTC), in which case
   keep the host port.
 
-After plan approval, scaffold + edit:
+After plan approval, Claude scaffolds + edits:
 
 ```bash
-cd /services
-./controller.sh create <name> <template>      # creates /services/<name>, git init
-# Answer y if you want borg initialized now, n to defer until after first successful start.
+cd $BASE_DIR
+printf 'n\n' | ./controller.sh create <name> <template>   # creates $BASE_DIR/<name>, git init
 ```
 
-Then Claude edits `/services/<name>/docker-compose.yml`, `.env`, `service.sh` to match the plan.
+The piped answer handles `create`'s interactive "init a Borg repository now?" prompt, which
+would otherwise hang or abort a non-interactive run. Pipe `y` instead of `n` if the plan
+decided to init borg now; default is `n` — defer until after the first successful start.
+
+Then Claude edits `$BASE_DIR/<name>/docker-compose.yml`, `.env`, `service.sh` to match the plan.
 
 ## Phase 4 — User-run data migration
 
@@ -151,7 +160,7 @@ Hand the user the exact commands. Examples by source type:
 ```bash
 rsync -aHAX --numeric-ids --info=progress2 \
   root@OLD:/path/to/data/ \
-  /services/<name>/volumes/data/
+  $BASE_DIR/<name>/volumes/data/
 ```
 
 `--numeric-ids` is essential when containers run as a specific uid (e.g. `www-data` = 33,
@@ -172,8 +181,9 @@ ssh root@OLD 'docker exec <old-db-container> mysqldump --single-transaction --qu
 **Env / secret files:** plain `scp`. Note that the new `.env` should be a *rewrite* of the old
 one, not a verbatim copy — rename vars to template conventions.
 
-**Tell the user when to ping back.** Ask them to message after the scaffold lands
-(`./controller.sh create`) so Claude can edit files in parallel with the long rsync.
+**Tell the user when to ping back.** Ask them to message when the data copy finishes. The
+scaffold and file edits (Phase 3) are Claude's and don't depend on the copy — keep working on
+them while the long rsync runs.
 
 ## Phase 5 — Verify, finalize, start
 
@@ -182,13 +192,13 @@ operations):
 
 1. **Sanity-check copied data:**
    ```bash
-   du -sh /services/<name>/volumes/*
-   ls -la /services/<name>/volumes/<critical-dir> | head -10   # verify numeric uid/gid
+   du -sh $BASE_DIR/<name>/volumes/*
+   ls -la $BASE_DIR/<name>/volumes/<critical-dir> | head -10   # verify numeric uid/gid
    ```
 
 2. **Bring it up:**
    ```bash
-   cd /services/<name>
+   cd $BASE_DIR/<name>
    ./service.sh up
    ./service.sh logs        # tail briefly
    ./service.sh status
@@ -215,13 +225,12 @@ operations):
 5. **Hand back to the user** with:
    - Any UI-side admin changes that need to happen (e.g. updating a HPB URL in NC Talk admin).
    - The DNS flip when they're ready to cut over.
-   - The commit + first borg backup, framed as a single command:
+   - The commit + first borg backup — a single command, because `git commit` automatically
+     creates a borg backup named `commit: <message>` (see [git.sh](../../../git.sh)):
      ```bash
      ./service.sh git commit "<concrete description of the migration>"
-     ./service.sh borg backup post-migration
      ```
-   Per [commit workflow memory](../../../../../../root/.claude/projects/-services/memory/feedback_commit_workflow.md),
-   wait for explicit user approval before committing.
+   Wait for explicit user approval before committing — never commit a service repo unprompted.
 
 ## Pitfalls
 

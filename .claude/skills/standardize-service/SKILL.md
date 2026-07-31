@@ -9,7 +9,19 @@ description: 'Standardize service templates to match project conventions. Use wh
 
 When adding or updating a service template to align with the project's docker-compose standards (bookstack, default, karakeep, nextcloud patterns).
 
-## Standardization Checklist
+Also invoked as the standardization phase of [create-service](../create-service/SKILL.md),
+[migrate](../migrate/SKILL.md), and [templatize-service](../templatize-service/SKILL.md).
+
+## How to apply
+
+Work through [CHECKLIST.md](CHECKLIST.md) top-to-bottom — it is the tickable execution list
+for these rules. The numbered sections below (referenced from the checklist as §0–§9) hold
+the detail; read them first.
+
+## Standardization Rules
+
+### 0. Remove Obsolete Keys
+- Delete the top-level `version:` key if present (obsolete since Compose v2; upstream examples often still carry it)
 
 ### 1. Remove Container Names
 - Delete `container_name:` from all service definitions
@@ -70,6 +82,7 @@ available at `/etc/traefik/conf/<service>/<file>.yml`.
 ### 7. Volume Paths
 - Change all volume mounts to use `./volumes/` prefix
 - Example: `/var/lib/postgresql` → `./volumes/db:/var/lib/postgresql`
+- Convert *named volumes* to `./volumes/<name>` bind mounts and delete the then-unused top-level `volumes:` block — data hidden in named volumes lives outside the service dir and is invisible to borg backups
 
 ### 8. Environment Variables
 - **Inline in `environment:`**: Container-specific configs that are NOT host-specific or private (e.g., internal paths, stack-internal DB URLs, DB passwords for databases hosted within the same stack). Also inline values that can be derived from existing compose variables (e.g., `APP_URL: https://${DOMAIN}`, `HUB_URL: https://${DOMAIN}`).
@@ -86,11 +99,13 @@ available at `/etc/traefik/conf/<service>/<file>.yml`.
 
 ## Example Reference
 
-See [nextcloud template](https://github.com/your-repo/tree/main/.controller/templates/nextcloud) for a complete, standards-compliant example.
+See the [nextcloud template](../../../templates/nextcloud/) for a complete, standards-compliant example.
 
 ## Validation
 
 After standardization:
+- `docker compose config --quiet` passes (warnings about empty variables are OK, errors are not)
+- No top-level `version:` key and no orphaned named-volume block remain
 - No hardcoded image versions remain in docker-compose.yml
 - Only the webserver has traefik labels
 - Only services on traefik network have explicit `networks:` declaration

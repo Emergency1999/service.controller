@@ -11,6 +11,10 @@ The user wants to run software on this server that does not exist here yet and h
 `templates/`. This is a **fresh install from upstream sources** — if an existing deployment on
 another host should be moved over instead, use the [migrate](../migrate/SKILL.md) skill.
 
+Once the new service has proven itself in production,
+[templatize-service](../templatize-service/SKILL.md) can turn it into a reusable template —
+worth mentioning in the final hand-over when the software seems generally useful.
+
 ## Process at a glance
 
 1. **Scope** — clarify name, domain, and variant choices with the user; check whether a
@@ -25,6 +29,9 @@ another host should be moved over instead, use the [migrate](../migrate/SKILL.md
 6. **Final overview** — tell the user exactly what to fill in and how to start. Do **not** start
    the service yourself. End the turn here.
 7. **Debug on demand** — when the user reports back, help diagnose with `logs`/`status`.
+
+Execute via the step-by-step [CHECKLIST.md](CHECKLIST.md) — tick it top-to-bottom; the phase
+sections below hold the rules and context each step references.
 
 ## Rules of engagement
 

@@ -28,8 +28,12 @@ See [standardize-service](../standardize-service/SKILL.md) section 4b for the co
 Follow the step-by-step checklist in [CHECKLIST.md](CHECKLIST.md). The sections below give the
 **rules** the checklist references — read them first, then execute the checklist top-to-bottom.
 
-**Note:** traefik watches `conf/` live, so the checklist is deliberately **copy-first,
-delete-last** — the legacy `conf/` stays in place until the mount swap is validated.
+### Safe migration ordering
+
+Traefik watches `conf/` live, so the checklist is deliberately **copy-first, delete-last** —
+the legacy `conf/` stays in place until the mount swap is validated. If validation fails,
+reverting the single mount line in the compose file and restarting traefik restores the
+pre-migration state with zero loss.
 
 ## Concepts (read before acting)
 

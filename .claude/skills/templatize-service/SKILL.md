@@ -30,6 +30,9 @@ Related skills:
 6. **Document + hand over** — update the template list in [CLAUDE.md](../../../CLAUDE.md), show
    the `.controller` diff, let the **user** commit.
 
+Execute via the step-by-step [CHECKLIST.md](CHECKLIST.md) — tick it top-to-bottom; the phase
+sections below hold the rules each step references.
+
 ## Rules of engagement
 
 - **No secrets, no data — the prime directive.** A template ships to every install via
