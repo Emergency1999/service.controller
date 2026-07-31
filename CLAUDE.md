@@ -132,6 +132,17 @@ There is no build, lint, or automated test harness — validation is manual (the
 (default, traefik, bookstack, karakeep, nextcloud, onlyoffice, openslides, pretix, wordpress, zammad).
 `create` copies a template into a new service dir, `chmod +x service.sh`, and inits a git repo.
 
+To research and set up brand-new software that has no template yet, use the
+[create-service skill](.claude/skills/create-service/SKILL.md) — it researches official
+docker-compose sources, scaffolds via `create`, writes a `SETUP.md`, and hands off to
+standardize-service.
+
+To turn a proven running service into a new template — or refresh an existing template from the
+live service (version bumps, structural changes) — use the
+[templatize-service skill](.claude/skills/templatize-service/SKILL.md). It copies only the
+allowlisted generic files and strips all secrets and data (never `volumes/`, `generated/`, `.git/`,
+or real `.env` values).
+
 When adding or editing a template, follow the conventions in
 [.claude/skills/standardize-service/SKILL.md](.claude/skills/standardize-service/SKILL.md):
 no `container_name`, ports commented out, two-network model (`default` + external `traefik`), traefik labels
