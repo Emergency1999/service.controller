@@ -23,6 +23,9 @@ service stays untouched.
 - [ ] **Update:** `diff -u` template vs live for every allowlisted file; sort each hunk into
       bring-over / leave-behind / preserve-in-template (SKILL.md Phase 2). Ambiguous hunks →
       ask the user.
+- [ ] **Update:** prepend a `CHANGELOG.md` entry in the template (create the file on first
+      update) — date + version heading, one bullet per brought-over hunk, removals named
+      explicitly. Very short but delta-complete (update-service-from-template consumes it).
 
 ## 3. Sanitize (Claude)
 
@@ -63,4 +66,6 @@ service stays untouched.
       new template).
 - [ ] Summarize: files copied, values emptied/replaced, anything flagged "unclear — please
       check".
+- [ ] Update only: `CHANGELOG.md` entry present and its bullets match the actually merged
+      hunks; mention that services can pull the delta via update-service-from-template.
 - [ ] **Stop.** The user reviews and commits `.controller/` manually.

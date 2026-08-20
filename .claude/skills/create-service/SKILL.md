@@ -13,7 +13,9 @@ another host should be moved over instead, use the [migrate](../migrate/SKILL.md
 
 Once the new service has proven itself in production,
 [templatize-service](../templatize-service/SKILL.md) can turn it into a reusable template —
-worth mentioning in the final hand-over when the software seems generally useful.
+worth mentioning in the final hand-over when the software seems generally useful. Later
+version upgrades are handled by [update-service](../update-service/SKILL.md), which relies on
+the `UPDATE.md` this skill writes in Phase 4.
 
 ## Process at a glance
 
@@ -117,15 +119,21 @@ All inside `$BASE_DIR/<name>/`:
 - **`service.sh`** — extend beyond the template only when the service needs it: an
   `att_configure` that runs `generate <template> <output>` for dynamic config files, or a
   custom command wrapping the app's CLI (pattern: `occ` in the nextcloud template).
-- **`SETUP.md`** — the documentation file, written for a future operator (or future Claude):
-  - **Overview** — what the software does, links to official docs and the source of the
-    compose example.
-  - **Architecture** — one line per container and what it's for.
-  - **Configuration** — table of `.env` vars: purpose, secret/user-set/static, TODO status.
-  - **First start** — prerequisites (DNS, `.env` TODOs) and the initial admin setup steps.
-  - **Post-start** — one-time init commands, admin UI settings to change, verification URLs.
-  - **Maintenance** — how upgrades work (bump version var in `.env`, `pull`, `restart`),
-    anything special about backup/restore beyond the standard borg flow.
+- **`UPDATE.md`** — the version-source info file consumed by
+  [update-service](../update-service/SKILL.md) (skeleton in its Phase 3): per image the
+  releases/changelog/breaking-changes URLs, version scheme and upgrade rules, app-specific
+  post-upgrade checks, and a footer with current main version + today's date. All of this
+  falls out of the Phase 2 research — write it down now so upgrades never re-hunt sources.
+- **`SETUP.md`** — short and **service-specific only**. Generic knowledge lives elsewhere and
+  is not repeated here: `.env` comments describe the variables, `UPDATE.md` covers upgrades,
+  `docker-compose.yml` shows the architecture, and the standard borg/traefik flows are
+  documented in the controller repo. Three sections, each dropped when empty:
+  - **Links** — official documentation, the source of the compose example, admin guide.
+  - **First run** — how the initial admin account is created (env var, setup wizard URL, or
+    CLI command inside the container) and any one-time init/migration commands.
+  - **Quirks** — non-obvious requirements unique to this service (e.g. a trusted-proxy
+    setting, a worker that must be scaled, backup/restore needs beyond the standard borg
+    flow) — typically grown later during debugging rather than filled on day one.
 
 ## Phase 5 — Hand off to standardize-service
 

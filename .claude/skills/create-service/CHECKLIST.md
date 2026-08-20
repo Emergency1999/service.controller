@@ -35,8 +35,11 @@ sources only, versions pinned".
 - [ ] `.env` — `DOMAIN`, pinned versions, generated secrets (`openssl rand -hex 32`),
       `TIME_ZONE`, `# TODO` markers for user-only values.
 - [ ] `service.sh` — only extend when needed (`att_configure` + `generate`, custom CLI cmds).
-- [ ] `SETUP.md` — overview, architecture, configuration table, first start, post-start,
-      maintenance.
+- [ ] `SETUP.md` — service-specific only: doc links, first-run admin setup, quirks
+      (SKILL.md Phase 4; drop empty sections, don't duplicate `.env`/`UPDATE.md`).
+- [ ] `UPDATE.md` — per-image version sources (releases/changelog/breaking-changes URLs),
+      upgrade rules, post-upgrade checks, current version + last-checked date (skeleton in
+      [update-service](../update-service/SKILL.md) Phase 3).
 
 ## 4. Standardize (Claude)
 

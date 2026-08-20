@@ -17,6 +17,9 @@ Related skills:
 - A deployment on *another host* that should move here → [migrate](../migrate/SKILL.md).
 - The conventions every template must satisfy → [standardize-service](../standardize-service/SKILL.md)
   (this skill assumes them; read it first).
+- The reverse direction — applying template changes back to services created from it →
+  [update-service-from-template](../update-service-from-template/SKILL.md). It consumes the
+  `CHANGELOG.md` this skill maintains (Phase 2), so keep that changelog delta-complete.
 
 ## Process at a glance
 
@@ -24,6 +27,7 @@ Related skills:
    `docker-compose.yml` and `service.sh` actually reference.
 2. **New or update?** Check whether `templates/<name>` already exists and branch accordingly.
 3. **Copy / merge** the allowlisted files — never a blanket `cp -r` of the service dir.
+   Update mode: record the merged delta in the template's `CHANGELOG.md`.
 4. **Sanitize** — empty every secret, replace real domains with `example.com` placeholders,
    keep version pins.
 5. **Verify** — mechanical leak scan + `docker compose config` + standardize-service checklist.
@@ -81,6 +85,10 @@ Build the allowlist from what is actually referenced:
   under `generated/` stays out; the source template goes in).
 - `traefik/` file-provider YAMLs and the extra config of a traefik-role service (`traefik.yml`).
 - `SETUP.md` / `docs/` written by [create-service](../create-service/SKILL.md), if generic.
+- `UPDATE.md` (version-source info written by [create-service](../create-service/SKILL.md) /
+  [update-service](../update-service/SKILL.md)) — generic by design; sanitize like `SETUP.md`.
+  Note: the template's `CHANGELOG.md` is maintained by *this* skill in Phase 2 and never
+  copied from the service.
 - Anything else in the dir: **ask the user** — unknown files are either host-specific
   (leave out) or a missing part of the stack (copy + sanitize).
 
@@ -122,6 +130,23 @@ Sort every hunk into one of three buckets:
 3. **Preserve in the template** — placeholder values, commented-out optional blocks (SMTP
    sections, opt-in features), and explanatory comments. Never let the live file's absence of
    these "win" the merge — they exist *only* in the template and that is correct.
+
+**Update mode only — record the delta in `CHANGELOG.md`.** After merging, prepend an entry to
+`templates/<name>/CHANGELOG.md` (create the file on the first update). One bullet per
+brought-over hunk, no prose beyond that — this is what
+[update-service-from-template](../update-service-from-template/SKILL.md) reads to apply the
+delta to other services without a full diff, so it must be **very short but delta-complete**:
+
+```markdown
+## 2026-08-20 — 2.20 → 2.21
+- PAPERLESS_VERSION 2.20 → 2.21
+- added healthcheck on webserver
+- new env var PAPERLESS_XYZ (empty placeholder)
+```
+
+Newest entry on top; heading = date (absolute) plus the main-version change (or a two-word
+topic when no version changed). Explicitly note removals (`- removed <thing>`) — consumers
+only delete what an entry names.
 
 ## Phase 3 — Sanitize
 
@@ -223,3 +248,7 @@ must be absent.
 - **Version pins accidentally "sanitized".** Versions are the one live value templates *want*
   (`NEXTCLOUD_VERSION=32.0.8`, not `NEXTCLOUD_VERSION=`) — emptying them ships a broken
   template; `latest` is equally wrong.
+- **Changelog entry skipped or vague on a template update.**
+  [update-service-from-template](../update-service-from-template/SKILL.md) applies exactly
+  what the `CHANGELOG.md` bullets name — a missing or summarized-away hunk silently never
+  reaches other services. One bullet per brought-over hunk, removals named explicitly.

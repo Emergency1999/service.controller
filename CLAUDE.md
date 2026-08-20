@@ -141,7 +141,17 @@ To turn a proven running service into a new template — or refresh an existing 
 live service (version bumps, structural changes) — use the
 [templatize-service skill](.claude/skills/templatize-service/SKILL.md). It copies only the
 allowlisted generic files and strips all secrets and data (never `volumes/`, `generated/`, `.git/`,
-or real `.env` values).
+or real `.env` values). On template *updates* it records the delta in the template's
+`CHANGELOG.md`.
+
+To upgrade a running service to newer upstream releases, use the
+[update-service skill](.claude/skills/update-service/SKILL.md) — it checks for unapplied
+template changes first, researches releases and breaking changes via the service's `UPDATE.md`
+(creating it when missing), then runs a backed-up `down` → edit → `up` cycle ending in a
+`commit`. To apply *template* changes to a service created from it, use the
+[update-service-from-template skill](.claude/skills/update-service-from-template/SKILL.md) —
+it reads the template's `CHANGELOG.md` to find the pending delta and merges it without
+clobbering secrets, the real domain, or local tweaks.
 
 When adding or editing a template, follow the conventions in
 [.claude/skills/standardize-service/SKILL.md](.claude/skills/standardize-service/SKILL.md):
