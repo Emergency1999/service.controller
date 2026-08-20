@@ -1,0 +1,105 @@
+networks:
+  default:
+  traefik:
+    external: true
+
+services:
+  redis:
+    image: docker.io/library/redis:${REDIS_VERSION}
+    restart: unless-stopped
+    volumes:
+      - ./volumes/redis:/data
+
+  db:
+    image: docker.io/library/postgres:${POSTGRES_VERSION}
+    restart: unless-stopped
+    volumes:
+      - ./volumes/pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:${PAPERLESS_VERSION}
+    restart: unless-stopped
+    volumes:
+      - ./volumes/data:/usr/src/paperless/data
+      - ./volumes/media:/usr/src/paperless/media
+      - ./volumes/export:/usr/src/paperless/export
+      - ./volumes/consume:/usr/src/paperless/consume
+    environment:
+      PAPERLESS_REDIS: redis://redis:6379
+      # v3 defaults DBENGINE to sqlite - postgres users must set it explicitly
+      PAPERLESS_DBENGINE: postgresql
+      PAPERLESS_DBHOST: db
+      PAPERLESS_TIKA_ENABLED: 1
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+      PAPERLESS_TASK_WORKERS: 4
+
+      PAPERLESS_URL: https://${DOMAIN}
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
+      PAPERLESS_TIME_ZONE: ${TIME_ZONE}
+
+      PAPERLESS_OCR_LANGUAGE: deu
+      # v3 accepts duplicates by default; keep the 2.x reject behaviour
+      PAPERLESS_CONSUMER_DELETE_DUPLICATES: "true"
+      PAPERLESS_OCR_USER_ARGS: '{"invalidate_digital_signatures": true}'
+
+      # OIDC is the only login path while DISABLE_REGULAR_LOGIN is True - fill in the
+      # PAPERLESS_OIDC_* vars in .env before the first `up`, or set this to False and
+      # create an account with `./service.sh createsuperuser`.
+      PAPERLESS_SOCIAL_AUTO_SIGNUP: "True"
+      PAPERLESS_DISABLE_REGULAR_LOGIN: "True"
+      PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect
+
+      PAPERLESS_SOCIALACCOUNT_PROVIDERS: >
+        {
+          "openid_connect": {
+            "APPS": [
+              {
+                "provider_id": "authentik",
+                "name": "${PAPERLESS_OIDC_NAME}",
+                "client_id": "${PAPERLESS_OIDC_CLIENT_ID}",
+                "secret": "${PAPERLESS_OIDC_SECRET}",
+                "settings": {
+                  "server_url": "${PAPERLESS_OIDC_SERVER_URL}"
+                }
+              }
+            ],
+            "OAUTH_PKCE_ENABLED": "True"
+          }
+        }
+
+    depends_on:
+      - db
+      - redis
+      - gotenberg
+      - tika
+    # ports:
+    #   - "8000:8000"
+    networks:
+      - traefik
+      - default
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=8000"
+
+  gotenberg:
+    image: docker.io/gotenberg/gotenberg:${GOTENBERG_VERSION}
+    restart: unless-stopped
+
+    # The gotenberg chromium route is used to convert .eml files. We do not
+    # want to allow external content like tracking pixels or even javascript.
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+
+  tika:
+    image: docker.io/apache/tika:${TIKA_VERSION}
+    restart: unless-stopped
