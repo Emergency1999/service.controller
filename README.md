@@ -18,7 +18,7 @@ This repository controls all services in different directories.
 You can use this script to initialize the folder structure on the server.
 
 ```bash
-curl -O https://raw.githubusercontent.com/Vereine-Vereint/service.controller/refs/heads/main/init.sh && bash init.sh; rm init.sh
+curl -O https://raw.githubusercontent.com/Emergency1999/service.controller/refs/heads/main/init.sh && bash init.sh; rm init.sh
 ```
 
 - services folder name  
