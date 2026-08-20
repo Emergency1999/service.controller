@@ -129,7 +129,7 @@ There is no build, lint, or automated test harness — validation is manual (the
 ## Service templates
 
 [templates/](templates/) holds starter docker-compose stacks
-(default, traefik, bookstack, karakeep, nextcloud, onlyoffice, openslides, pretix, wishlist, wordpress, zammad).
+(default, traefik, bookstack, euro-office, karakeep, nextcloud, onlyoffice, openslides, pretix, wishlist, wordpress, zammad).
 `create` copies a template into a new service dir, `chmod +x service.sh`, and inits a git repo.
 
 To research and set up brand-new software that has no template yet, use the

@@ -1,0 +1,92 @@
+networks:
+  default:
+  traefik:
+    external: true
+
+services:
+  euro-office:
+    image: ghcr.io/euro-office/documentserver:${EURO_OFFICE_VERSION}
+    restart: unless-stopped
+
+    # The document server flushes open editing sessions on shutdown; give it
+    # room before docker escalates to SIGKILL.
+    stop_grace_period: 60s
+
+    # ports:
+      # - "8890:80" # nginx inside the container; served through traefik instead
+
+    environment:
+      # --- Nextcloud handshake --------------------------------------------
+      # Every request between Nextcloud and the document server is signed with
+      # this secret. The identical value goes into Nextcloud's Office admin
+      # settings — a mismatch surfaces as "Error while downloading the document".
+      - JWT_ENABLED=true
+      - JWT_SECRET=${EURO_OFFICE_JWT_SECRET}
+
+      # --- Attack surface -------------------------------------------------
+      # The bundled example app is an unauthenticated upload-and-edit
+      # playground, and traefik would publish it to the internet. Keep it off.
+      - EXAMPLE_ENABLED=false
+      # The Nextcloud app speaks the ONLYOFFICE-style API, not WOPI.
+      - WOPI_ENABLED=false
+      # Refuse to fetch documents from private/link-local addresses. Only set
+      # this to true if Nextcloud is reachable *solely* on a private IP —
+      # see SETUP.md, it disables an SSRF guard.
+      - ALLOW_PRIVATE_IP_ADDRESS=false
+
+      - TZ=${TIME_ZONE}
+
+    volumes:
+      # Runtime state, including .private/ (WOPI keypair, secure-link secret,
+      # and a generated JWT secret when none is passed in). Upstream explicitly
+      # recommends persisting this path; the image ships the directory empty and
+      # the entrypoint creates what it needs inside it, so the mount is safe.
+      - ./volumes/data:/var/www/euro-office/Data
+
+      # Extra fonts offered in the editors. The cache is rebuilt on every start
+      # (GENERATE_FONTS defaults to true), so an empty dir is fine — and
+      # /usr/share/fonts/custom does not exist in the image, so nothing is
+      # hidden and the system fonts stay untouched.
+      - ./volumes/fonts:/usr/share/fonts/custom
+
+      # ---------------------------------------------------------------------
+      # DO NOT mount the three paths below. Each one breaks the container, and
+      # the first two are listed as "persistent" in the upstream docs — this is
+      # a trap, verified the hard way on 2026-08-20.
+      #
+      #  /var/log/euro-office/documentserver
+      #     The image ships adminpanel/, converter/, docservice/ and metrics/
+      #     subdirectories (owned by ds:ds). supervisord validates the logfile
+      #     path of *every* program at startup, including the disabled
+      #     adminpanel, so an empty bind mount makes it exit with
+      #     "The directory named as part of the path .../adminpanel/out.log
+      #     does not exist". The entrypoint's exec then returns, the container
+      #     exits 0 and the restart policy loops it forever, regenerating fonts
+      #     on every pass. Unlike ONLYOFFICE's, this entrypoint never mkdirs
+      #     those subdirs. Read the logs in place with `./service.sh dslogs`.
+      #
+      #  /var/lib/euro-office/documentserver
+      #     Hides the image's App_Data/ tree behind a root-owned directory the
+      #     ds (105:107) processes cannot populate. It holds the regenerable
+      #     conversion cache, so losing it on a recreate costs nothing.
+      #
+      #  /etc/euro-office/documentserver
+      #     Holds the nginx templates, and the entrypoint rewrites local.json
+      #     from this environment on every start — nothing to persist.
+      # ---------------------------------------------------------------------
+
+    networks:
+      - traefik # add to traefik network
+      - default # add to default (stack internal) network
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure"
+      # The image declares no EXPOSE, so traefik cannot infer the port —
+      # without this label every request ends in a 502.
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80"
+      # traefik terminates TLS; the document server builds its own URLs from
+      # this header and would otherwise emit http:// links into the editor.
+      - "traefik.http.middlewares.${COMPOSE_PROJECT_NAME}-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.middlewares=${COMPOSE_PROJECT_NAME}-headers"

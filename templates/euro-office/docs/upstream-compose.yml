@@ -1,0 +1,120 @@
+# Upstream reference — DO NOT RUN THIS FILE.
+#
+# Source 1: Euro-Office documentation, "Installation / Docker"
+#   https://euro-office.github.io/documentation/installation/docker/
+# Source 2: Nextcloud blog, "How to install Euro-Office"
+#   https://nextcloud.com/blog/how-to-install-euro-office/
+# Source 3: Euro-Office documentation, "Integration / Nextcloud"
+#   https://euro-office.github.io/documentation/integration/nextcloud/
+# Source 4: standalone image entrypoint — the authoritative list of environment
+#   variables, their defaults, and which bundled services get started
+#   https://github.com/Euro-Office/DocumentServer/blob/main/build/scripts/standalone/entrypoint.sh
+# Source 5: community how-to with a compose file (NOT official; the only
+#   compose example that exists for this image)
+#   https://help.nextcloud.com/t/euro-office-for-nextcloud-with-docker/246602
+#
+# Retrieved: 2026-08-20
+#
+# ---------------------------------------------------------------------------
+# Source 1 — the official docs give a `docker run`, not a compose file:
+# ---------------------------------------------------------------------------
+#
+#   docker run -d \
+#     --name euro-office \
+#     --restart=unless-stopped \
+#     -p 80:80 \
+#     -e JWT_ENABLED=true \
+#     -e JWT_SECRET=at-least-32-chars-long-for-hs256 \
+#     ghcr.io/euro-office/documentserver:latest
+#
+# Documented persistent paths:
+#   /var/lib/euro-office/documentserver   documents and cache
+#   /var/www/euro-office/Data             runtime state, generated secrets
+#   /var/log/euro-office/documentserver   logs
+#   /etc/euro-office/documentserver       configuration
+#
+# Documented environment variables (defaults from source 4):
+#   JWT_ENABLED=true          JWT_HEADER=Authorization    JWT_IN_BODY=false
+#   EXAMPLE_ENABLED=false     WOPI_ENABLED=false          PLUGINS_ENABLED=true
+#   ALLOW_PRIVATE_IP_ADDRESS=false                        GENERATE_FONTS=true
+#   MAX_FILE_SIZE=104857600   NGINX_CLIENT_MAX_BODY_SIZE=100m
+#   NGINX_WORKER_PROCESSES=1  ADMINPANEL_ENABLED=false    METRICS_ENABLED=false
+#   DB_TYPE=postgres  DB_HOST=localhost  DB_PORT=5432
+#   DB_NAME=eurooffice  DB_USER=eurooffice  DB_PWD=
+#   AMQP_HOST=localhost  AMQP_PORT=5672  AMQP_URI=
+#   REDIS_SERVER_HOST=localhost  REDIS_SERVER_PORT=6379
+#
+# Source 4 confirms the standalone image bundles PostgreSQL, RabbitMQ and Redis
+# and starts each one only while the matching *_HOST variable is still
+# "localhost"; pointing a variable at another host makes it use that instead.
+# The standalone image accepts DB_TYPE=postgres only.
+#
+# ---------------------------------------------------------------------------
+# Source 2 — the Nextcloud blog adds the volume mounts:
+# ---------------------------------------------------------------------------
+#
+#   docker run -d \
+#     --name euro-office \
+#     --restart=unless-stopped \
+#     -p 80:80 \
+#     -e JWT_ENABLED=true \
+#     -e JWT_SECRET=your-secret \
+#     -v /path/to/data:/var/lib/euro-office/documentserver \
+#     -v /path/to/logs:/var/log/euro-office/documentserver \
+#     -v /path/to/config:/etc/euro-office/documentserver \
+#     ghcr.io/euro-office/documentserver:latest
+#
+# ---------------------------------------------------------------------------
+# Source 5 — the community compose example, verbatim:
+# ---------------------------------------------------------------------------
+
+services:
+    euro-office:
+        container_name: euro-office
+        image: ghcr.io/euro-office/documentserver:latest
+        restart: unless-stopped
+        environment:
+            - JWT_ENABLED=true
+            - JWT_SECRET=<64-hex secret, redacted from the forum post>
+        ports:
+            - 8890:80
+        volumes:
+            - euro-office_data:/var/lib/euro-office
+            - euro-office_config:/etc/euro-office
+            - euro-office_logs:/var/log/euro-office
+            - ./custom-fonts:/usr/share/fonts/custom
+        tty: true
+        stdin_open: true
+
+volumes:
+    euro-office_data:
+    euro-office_config:
+    euro-office_logs:
+
+# ---------------------------------------------------------------------------
+# Deviations in the adapted stack (../docker-compose.yml) and why:
+# ---------------------------------------------------------------------------
+#
+#  * Named volumes -> ./volumes/... bind mounts, so borg sees the data.
+#  * Only /var/www/euro-office/Data and /usr/share/fonts/custom are mounted.
+#    Three of the paths the sources above present as persistent are NOT mounted,
+#    because an empty *bind* mount over them breaks the container (sources 2 and
+#    5 get away with it: a named volume is seeded from the image, a bind mount
+#    is not):
+#      - /var/log/euro-office/documentserver hides the adminpanel/, converter/,
+#        docservice/ and metrics/ subdirs the image ships. supervisord validates
+#        every program's logfile path at startup, so it exits, the container
+#        exits 0, and the restart policy loops forever. Verified 2026-08-20.
+#        ONLYOFFICE's entrypoint mkdirs these; this fork's does not.
+#      - /var/lib/euro-office/documentserver hides App_Data/ and blocks the
+#        ds (105:107) processes from populating a root-owned replacement.
+#      - /etc/euro-office/documentserver holds the nginx templates, and
+#        local.json is regenerated from the environment on every boot.
+#  * Published port dropped; traefik routes to the container port instead.
+#    A loadbalancer.server.port=80 label is required because the image has no
+#    EXPOSE (verified in build/.docker/standalone.bake.Dockerfile).
+#  * EXAMPLE_ENABLED / WOPI_ENABLED / ALLOW_PRIVATE_IP_ADDRESS pinned to their
+#    safe defaults explicitly, since traefik publishes this server to the
+#    internet.
+#  * Version pinned to a v-prefixed tag. The docs mention "9.3.1"-style tags,
+#    but only v-prefixed ones exist in the registry (checked 2026-08-20).
