@@ -1,0 +1,27 @@
+networks:
+  default:
+  traefik:
+    external: true
+
+services:
+  bitwarden:
+    image: vaultwarden/server:${BITWARDEN_VERSION}
+    restart: unless-stopped
+    # ports:
+    #   - 8000:80
+    volumes:
+      - ./volumes/data:/data
+
+    environment:
+      WEBSOCKET_ENABLED: "true" # Required to use websockets
+      SIGNUPS_ALLOWED: "true"   # set to false to disable signups
+      ADMIN_TOKEN: "${ADMIN_TOKEN}" # argon2id hash (see .env) — empty disables /admin
+
+    networks:
+      - default
+      - traefik
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure"
