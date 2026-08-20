@@ -446,7 +446,7 @@ commands+=([update]=":Update the controller to the latest version")
 cmd_update() {
   echo "Updating controller..."
   cd $CORE_DIR
-  git pull origin main
+  git pull --rebase origin main
   echo "Controller updated to latest version"
   source update.sh
   echo "Controller update process completed"

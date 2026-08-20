@@ -19,7 +19,7 @@ CORE_DIR_NAME=${CORE_DIR_NAME:-.controller}
 if [[ -d "$CORE_DIR_NAME" ]]; then
   echo "Directory '$CORE_DIR_NAME' already exists. Updating existing repository..."
   cd "$CORE_DIR_NAME"
-  git pull origin main
+  git pull --rebase origin main
   cd ..
 else
   echo "Cloning service.controller repository into '$CORE_DIR_NAME'..."
