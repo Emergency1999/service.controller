@@ -63,5 +63,7 @@ and "backup before touching anything".
       `SETUP.md` only if documented behavior changed.
 - [ ] `./service.sh commit "upgrade-to-<new-version>"` (or a very short message like
       `"versions extracted"` for non-version changes).
-- [ ] Suggest [templatize-service](../templatize-service/SKILL.md) once the upgrade has
-      proven itself (template gets the new pins).
+- [ ] Service has a template → **ask** whether to run
+      [templatize-service](../templatize-service/SKILL.md) now. If yes: its `CHANGELOG.md`
+      entry gets one short `note:` bullet per figured-out upgrade fact (renamed vars,
+      required settings, version couplings) — nothing beyond what a future upgrade needs.

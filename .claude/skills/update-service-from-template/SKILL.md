@@ -74,7 +74,10 @@ diff -u $BASE_DIR/<service>/CHANGELOG.md $BASE_DIR/.controller/templates/<t>/CHA
 Entries present in the template file **above** the newest entry of the service's copy are the
 pending changes — work strictly from their bullets so nothing is missed. No service copy at
 all → every entry is pending. Spot-check the newest bullets against the actual template files
-(the changelog is the map, the files are the territory).
+(the changelog is the map, the files are the territory). Bullets prefixed `note:` carry
+upgrade knowledge (renamed vars, version couplings) rather than an edit to apply — read them
+before syncing and pass them on when handing over to
+[update-service](../update-service/SKILL.md).
 
 **Fallback — structural diff** (template has no `CHANGELOG.md` yet, or the changelog looks
 incomplete):

@@ -26,6 +26,7 @@ service stays untouched.
 - [ ] **Update:** prepend a `CHANGELOG.md` entry in the template (create the file on first
       update) — date + version heading, one bullet per brought-over hunk, removals named
       explicitly. Very short but delta-complete (update-service-from-template consumes it).
+      After an update-service run: one short `note:` bullet per figured-out upgrade fact.
 
 ## 3. Sanitize (Claude)
 

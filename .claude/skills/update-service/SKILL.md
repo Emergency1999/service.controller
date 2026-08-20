@@ -31,7 +31,8 @@ Related skills:
    the user's go-ahead before any downtime.
 6. **Execute** — `down` → `backup last-<current-version>` → apply edits → `pull` → `up`.
 7. **Verify** — status, logs, HTTP check, app-specific checks.
-8. **Finalize** — update docs, `./service.sh commit "upgrade-to-<new-version>"`.
+8. **Finalize** — update docs, `./service.sh commit "upgrade-to-<new-version>"`, then ask
+   whether to hand the upgrade back to the template via templatize-service.
 
 Execute via the step-by-step [CHECKLIST.md](CHECKLIST.md) — tick it top-to-bottom; the phase
 sections below hold the rules and context each step references.
@@ -198,9 +199,14 @@ then report what failed and leave the analysis to a calmer moment.
    ```
 
    `commit` also creates a fresh borg backup, so the post-upgrade state is archived too.
-3. If the service originates from a template, mention that
-   [templatize-service](../templatize-service/SKILL.md) can bring the new version pins back
-   into the template — worth doing after the upgrade has proven itself.
+3. **Offer the template hand-back.** If the service originates from a template, ask the user
+   (`AskUserQuestion`) whether to run [templatize-service](../templatize-service/SKILL.md)
+   now so other installs receive the upgrade. If they accept, carry the upgrade findings
+   into that run: besides the version bump and merged edits, the template's `CHANGELOG.md`
+   entry gets one short `note:` bullet per fact this upgrade had to figure out (renamed
+   vars, new required settings, version couplings like "requires postgres >= N") — so the
+   next update on another machine starts with that knowledge instead of re-researching it.
+   Keep the notes to facts a future upgrade needs, nothing else.
 
 ## Pitfalls
 

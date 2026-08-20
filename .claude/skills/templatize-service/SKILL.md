@@ -142,11 +142,16 @@ delta to other services without a full diff, so it must be **very short but delt
 - PAPERLESS_VERSION 2.20 → 2.21
 - added healthcheck on webserver
 - new env var PAPERLESS_XYZ (empty placeholder)
+- note: 2.21 requires postgres >= 15
 ```
 
 Newest entry on top; heading = date (absolute) plus the main-version change (or a two-word
 topic when no version changed). Explicitly note removals (`- removed <thing>`) — consumers
-only delete what an entry names.
+only delete what an entry names. When the refresh follows an
+[update-service](../update-service/SKILL.md) run, add the facts that upgrade had to figure
+out (renamed vars, new required settings, version couplings) as one short `note:` bullet
+each — knowledge for the next upgrade on another install, not an edit instruction. Only
+facts a future upgrade needs; keep even these to one line.
 
 ## Phase 3 — Sanitize
 
