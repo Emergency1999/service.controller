@@ -1,0 +1,110 @@
+networks:
+  default:
+  traefik:
+    external: true
+
+services:
+  openarchiver:
+    image: logiclabshq/open-archiver:${OPENARCHIVER_VERSION}
+    restart: unless-stopped
+    env_file:
+      - .env # STORAGE_ENCRYPTION_KEY / JWT_SECRET / ENCRYPTION_KEY
+    environment:
+      NODE_ENV: production
+      PORT_BACKEND: "4000"
+      PORT_FRONTEND: "3000"
+      APP_URL: https://${DOMAIN}
+      ORIGIN: https://${DOMAIN}
+      SYNC_FREQUENCY: "* * * * *"
+      ALL_INCLUSIVE_ARCHIVE: "false"
+      INGESTION_WORKER_CONCURRENCY: "5"
+
+      DATABASE_URL: postgresql://openarchiver:${POSTGRES_PASSWORD}@openarchiver-postgres:5432/open_archive
+
+      MEILI_HOST: http://openarchiver-meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_INDEXING_BATCH: "500"
+
+      REDIS_HOST: openarchiver-valkey
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_TLS_ENABLED: "false"
+      REDIS_USER: default
+
+      STORAGE_TYPE: local
+      STORAGE_LOCAL_ROOT_PATH: /var/data/open-archiver
+      BODY_SIZE_LIMIT: 100M
+
+      ENABLE_DELETION: "false"
+      RATE_LIMIT_WINDOW_MS: "60000"
+      RATE_LIMIT_MAX_REQUESTS: "100"
+      JWT_EXPIRES_IN: 7d
+
+      TIKA_URL: http://openarchiver-tika:9998
+    volumes:
+      - ./volumes/storage:/var/data/open-archiver
+    depends_on:
+      - openarchiver-postgres
+      - openarchiver-valkey
+      - openarchiver-meilisearch
+      - openarchiver-tika
+    networks:
+      - traefik # add to traefik network
+      - default # add to default (stack internal) network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=3000"
+
+  openarchiver-postgres:
+    image: postgres:${POSTGRES_VERSION}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: open_archive
+      POSTGRES_USER: openarchiver
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./volumes/pgdata:/var/lib/postgresql/data
+
+  openarchiver-valkey:
+    image: valkey/valkey:${VALKEY_VERSION}
+    restart: unless-stopped
+    command: valkey-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - ./volumes/valkeydata:/data
+
+  openarchiver-meilisearch:
+    image: getmeili/meilisearch:${MEILISEARCH_VERSION}
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_SCHEDULE_SNAPSHOT: "86400"
+    volumes:
+      - ./volumes/meilidata:/meili_data
+
+  openarchiver-tika:
+    image: apache/tika:${TIKA_VERSION}
+    restart: unless-stopped
+
+  # Optional: FastMCP bridge exposing the OpenArchiver REST API to MCP clients.
+  # Remove this service (and DOMAIN_MCP / OPENARCHIVER_API_KEY / MCP_URL_TOKEN
+  # from .env) if you don't need it. See mcp/openarchiver/README.md.
+  openarchiver-mcp:
+    build: ./mcp/openarchiver
+    restart: unless-stopped
+    environment:
+      OPENARCHIVER_BASE_URL: http://openarchiver:3000/api/v1
+      OPENARCHIVER_API_KEY: ${OPENARCHIVER_API_KEY} # required — server.py refuses to start if empty
+      MCP_URL_TOKEN: ${MCP_URL_TOKEN} # required — openssl rand -hex 24
+    depends_on:
+      - openarchiver
+    networks:
+      - traefik
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-mcp.rule=Host(`${DOMAIN_MCP}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-mcp.entrypoints=websecure"
+      # - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-mcp.middlewares=authentik@file"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-mcp.loadbalancer.server.port=8765"
