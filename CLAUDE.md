@@ -103,7 +103,7 @@ subcommand modules:
 ```bash
 # Run the controller (outer)
 ./controller.sh help
-./controller.sh create <name> [template]   # template defaults to "default"
+./controller.sh create <name> [template]   # template defaults to <name> if such a template exists, else "default"
 ./controller.sh import <name...>           # restore service(s) from latest borg backup
 ./controller.sh remove <name...>           # prompts for stop+backup before deleting
 ./controller.sh rename <old> <new>         # moves service folder + borg repo, prompts to stop+start

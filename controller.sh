@@ -53,7 +53,7 @@ main() {
 }
 
 # COMMANDS
-commands+=([create]="<name> <template>:Create a new service using a template")
+commands+=([create]="<name> [template]:Create a new service using a template")
 cmd_create() {
   echo "Creating new service..."
   local service_name="$1"
@@ -63,8 +63,13 @@ cmd_create() {
     exit 1
   fi
   if [[ -z "$template" ]]; then
-    echo "Using default template"
-    template="default"
+    if [[ -d "$CORE_DIR/templates/$service_name" ]]; then
+      echo "Using template '$service_name'"
+      template="$service_name"
+    else
+      echo "Using default template"
+      template="default"
+    fi
   fi
 
   # check if the service already exists
