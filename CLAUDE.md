@@ -55,7 +55,7 @@ The outer `controller.sh` is a thin shim that sources the outer `.env` then
 ### Per-service controller
 
 Each service directory has its own `service.sh` that sources `../.controller/core.sh`
-(see [../test/service.sh](../test/service.sh)). [core.sh](core.sh) wires in three
+(see [../test/service.sh](../test/service.sh)). [core.sh](core.sh) wires in four
 subcommand modules:
 
 - [docker.sh](docker.sh) — `up`, `down`, `start`, `stop`, `restart`, `pull`,
@@ -64,6 +64,8 @@ subcommand modules:
    — `init`, `backup`, `restore-fresh`, `restore-diff`, `export`, `list`, `prune`, `compact`, `break-lock`,
   plus `autobackup-enable/disable/now`. Each service has its own borg repo at `$BORG_REPO_BASE/<service>`.
 - [git.sh](git.sh) — `git commit <message>` (commits + creates a borg backup).
+- [versions/](versions/versions.sh) — `version info`, `search`, `list`, `auto-upgrade`. Only for
+  services with a `.version` file, see "Image versions" below.
 
 ### Cross-cutting concepts
 
@@ -92,6 +94,17 @@ subcommand modules:
   reboot, but the next `up` re-establishes them idempotently. Simple host-rule routing should still
   use compose labels — the `traefik/` subdir is for middlewares (e.g. authentik forwardAuth) and
   conf that labels can't express.
+- **Image versions** — a service with a `.version` file pins its images by digest. The file holds
+  `<NAME>_REPO`, `<NAME>_TARGET` (the tag that is followed) and `<NAME>_CURRENT` (the installed
+  digest) per image, is loaded together with `.env`, and `docker-compose.yml` has to use
+  `image: ${<NAME>_REPO}@${<NAME>_CURRENT}`. `up` checks that and fills every empty `CURRENT` with
+  the digest its target points to. `version auto-upgrade` moves `CURRENT` to the digest
+  the target points to: pull → `down` → `backup +upgrade-from-<version>-<hash>` → write `.version` →
+  `up` → wait until healthy → `commit`; if the service does not get healthy, the backup is restored.
+  Registry clients live in [versions/registries/](versions/registries/) (Docker Hub only so far);
+  the tags of a digest are cached in the service's `.version-history.tsv`.
+- **Protected backups** — `borg prune` skips archives whose name starts with `+`. borg 1.x can only
+  select archives by a glob, not exclude them, hence the single marker character.
 - **Template generation** — [func_generate.sh](func_generate.sh) `generate <template> <output>`
   expands `${VAR}` references using `envsubst`; used by services that need dynamic config files written
   into `generated/` before container start.
@@ -162,7 +175,7 @@ only on the webserver, image versions in `.env`, `restart: unless-stopped`, volu
 
 - Bash with `set -e` at script entry; modules toggle `set +e` only around commands whose failure must be
   handled explicitly (e.g. borg restore rollback, autobackup retry loop).
-- Logging prefixes: `[CONTROLLER]`, `[CORE]`, `[BORG]`, `[CRON]`. Match the existing prefix for new output.
+- Logging prefixes: `[CONTROLLER]`, `[CORE]`, `[BORG]`, `[CRON]`, `[VERSION]`. Match the existing prefix for new output.
 - All borg commands run under `sudo -E` (need root to read all service files); `BORG_RSH` has `~`
   expanded to `/home/$USER` because sudo strips `$HOME`.
 - Per-service `.env` is loaded with `set -o allexport` so values become available to `docker compose`.

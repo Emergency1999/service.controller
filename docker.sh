@@ -90,6 +90,8 @@ docker_down() {
 }
 
 docker_up() {
+  version_init
+
   exec_attachment setup
   exec_attachment configure
   exec_attachment pre-start

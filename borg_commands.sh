@@ -310,7 +310,8 @@ borg_compact() {
 
 borg_prune() {
   echo "[BORG] Prune old backups..."
-  sudo -E borg prune --progress --stats --keep-within 2d --keep-daily=14 --keep-weekly=8 --keep-monthly=12 --keep-yearly=3
+  # archives starting with "+" are never pruned (versions replaced by auto-upgrade)
+  sudo -E borg prune --progress --stats --glob-archives '[!+]*' --keep-within 2d --keep-daily=14 --keep-weekly=8 --keep-monthly=12 --keep-yearly=3
   if [ $? -ne 0 ]; then
     echo "[BORG] Prune failed"
     exit 1

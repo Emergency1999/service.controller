@@ -55,6 +55,7 @@ add_global_subcommand() {
 source $CORE_DIR/borg.sh
 source $CORE_DIR/docker.sh
 source $CORE_DIR/git.sh
+source $CORE_DIR/versions/versions.sh
 source $CORE_DIR/traefik_link.sh
 
 # FUNCTIONS
@@ -65,6 +66,9 @@ source $CORE_DIR/func_generate.sh
 load_env() {
   set -o allexport
   source $SERVICE_DIR/.env
+  if [[ -f $SERVICE_DIR/.version ]]; then
+    source $SERVICE_DIR/.version
+  fi
   set +o allexport
 }
 
