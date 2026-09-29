@@ -158,13 +158,13 @@ version_auto-upgrade() {
 
   if [[ -z $failure ]]; then
     version_replace "commit: $message"
-    # without a change there is nothing to commit, e.g. when an upgrade is
+    # only .version is committed, other changes of the service are left alone.
+    # Without a change there is nothing to commit, e.g. when an upgrade is
     # repeated after its backup was restored by hand
-    if [[ -n $(git status --porcelain) ]]; then
-      version_run commit "$message" || failure="commit"
-    else
-      version_run backup "commit: $message" || failure="backup"
+    if [[ -n $(git status --porcelain -- .version) ]]; then
+      git add .version && git commit -m "$message" -- .version || failure="commit"
     fi
+    [[ -n $failure ]] || version_run backup "commit: $message" || failure="backup"
     if [[ -n $failure ]]; then
       echo "[VERSION] Upgraded $SERVICE_DIR_NAME, but the $failure failed"
       exit 1

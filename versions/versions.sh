@@ -8,7 +8,7 @@ declare -A version_commands=(
   [add]="<name> <repo> <target>:Add an image to .version and show its line for docker-compose.yml"
   [info]=":Show the current and the target hash of every image with their tags"
   [search]="<hash/tag> [name]:Show all tags that belong to a hash or tag, name is required with several images"
-  [list]=":List the backups of the versions replaced by auto-upgrade with their tags"
+  [list]=":List the backups of the versions replaced by auto-upgrade and the installed version with their tags"
   ["auto-upgrade"]="[-y]:Upgrade to the digests the target tags point to"
 )
 
@@ -85,14 +85,20 @@ version_load() {
 }
 
 # version_init: gives every image with an empty <name>_CURRENT the digest its
-# target points to. Called by docker_up and docker_pull, a service without a
-# .version file is left alone.
+# target points to and keeps the history out of git. Called by docker_up and
+# docker_pull, a service without a .version file is left alone.
 version_init() {
   local name var repo target current new i
   local -a names=() digests=()
 
   [[ -s "$SERVICE_DIR/.version" ]] || return 0
   version_check
+
+  if ! grep -qsxF "$VERSION_HISTORY" .gitignore; then
+    # a last line without its end would take up the one that is added
+    [[ ! -s .gitignore || -z $(tail -c1 .gitignore) ]] || echo >>.gitignore
+    echo "$VERSION_HISTORY" >>.gitignore
+  fi
 
   for name in $(version_names); do
     var="${name}_CURRENT"
@@ -247,9 +253,9 @@ version_search() {
 }
 
 # version_list: the backups with the digests and tags that the history holds
-# for the short hashes in their names
+# for the short hashes in their names, and the installed version the same way
 version_list() {
-  local archives archive short repo digest
+  local archives archive short repo digest name var installed=""
   echo "[VERSION] Versions replaced by auto-upgrade:"
   archives=$(version_borg list --glob-archives "$VERSION_ARCHIVE*" --format '{archive}{NL}')
 
@@ -259,5 +265,16 @@ version_list() {
       read -r repo digest < <(awk -F'\t' -v s="$short" '$5 == s { print $2, $3; exit }' "$SERVICE_DIR/$VERSION_HISTORY") || continue
       version_describe "" "$repo" "$digest"
     done
+  done
+
+  echo "[VERSION] Installed version:"
+  for name in $(version_names); do
+    var="${name}_CURRENT" && short="${!var:7:12}"
+    installed+="${installed:+_}${short:-none}"
+  done
+  echo "$installed"
+  for name in $(version_names); do
+    var="${name}_REPO" && repo="${!var}"
+    var="${name}_CURRENT" && version_describe "" "$repo" "${!var}"
   done
 }

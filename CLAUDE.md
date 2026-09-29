@@ -100,7 +100,7 @@ subcommand modules:
   `image: ${<NAME>_REPO}@${<NAME>_CURRENT}`. An empty `.version` counts as none. Digests are always
   written in full. `up` and `pull` fill every empty `CURRENT` with the digest its target points to.
   `version auto-upgrade` moves `CURRENT` to the digest the target points to: pull → `down` →
-  `backup +upgrade-from-<short hashes>` → write `.version` → `up` → wait until healthy → `commit`;
+  `backup +upgrade-from-<short hashes>` → write `.version` → `up` → wait until healthy → commit of `.version`, nothing else;
   if the service does not get healthy, the backup is restored. It needs the borg repository to be
   reachable. Only the names of backups and commits hold short hashes, the first 12 characters of
   a digest: borg takes names of up to 255 characters.
@@ -112,7 +112,8 @@ subcommand modules:
 - **Version history** — the service's `.version-history.tsv` holds per digest the tag that led to
   it, the tags the registry knew for it and its short hash, by which the backups of
   `version auto-upgrade` are named. It is the only cache and is never brought up to date, it tells
-  what a digest was when it was found.
+  what a digest was when it was found. `up` and `pull` put it into the service's `.gitignore`: it
+  changes by commands that only read, and every borg backup holds it anyway.
 - **Wildcard targets** — a `TARGET` may hold `*` in place of a number (`8.*.*`, `8.*.*-rc`). It
   stands for the tag with the highest numbers, the leftmost number counting most, see
   [versions/wildcard.sh](versions/wildcard.sh). With a client the tag is picked from the tags of
