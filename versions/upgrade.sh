@@ -56,17 +56,18 @@ version_wait() {
   return 1
 }
 
-# version_replace <archive>: deletes the archive if it exists, so that one left
-# behind by an earlier upgrade does not stop the new backup
-version_replace() {
-  if version_borg info "::$1" &>/dev/null; then
-    echo "[VERSION] Replacing existing backup '$1'"
-    version_borg delete "::$1"
-  fi
+# version_unique <name> <archives>: the name for a new backup. If the archives,
+# one per line, hold the name already, a counter is put to its end: the second
+# backup of a name is <name>.2
+version_unique() {
+  awk -v b="$1" '
+    $0 == b && n < 1 { n = 1 }
+    index($0, b ".") == 1 { c = substr($0, length(b) + 2) + 0; if (c > n) n = c }
+    END { print (n ? b "." (n + 1) : b) }' <<<"$2"
 }
 
 version_auto-upgrade() {
-  local name repo target current new short i
+  local name repo target current new short i archives
   local from="" to="" running=false failure=""
   local -a names=() digests=()
 
@@ -98,6 +99,7 @@ version_auto-upgrade() {
 
   local backup="$VERSION_ARCHIVE$from"
   local message="upgrade-to-$to"
+  local commit="commit: $message"
 
   failure=$(version_unhealthy)
   if [[ -n $failure ]]; then
@@ -108,10 +110,13 @@ version_auto-upgrade() {
   if [[ -n $(version_containers) ]]; then
     running=true
   fi
-  if ! version_borg info >/dev/null; then
+  if ! archives=$(version_borg list --format '{archive}{NL}'); then
     echo "[VERSION] The borg repository is not reachable, aborting"
     exit 1
   fi
+  # a backup of an earlier upgrade is kept, the new one gets a name of its own
+  backup=$(version_unique "$backup" "$archives")
+  commit=$(version_unique "$commit" "$archives")
 
   if [[ $1 != "-y" ]]; then
     printf "[VERSION] Proceed?(y/N): "
@@ -136,7 +141,6 @@ version_auto-upgrade() {
     version_run down
   fi
 
-  version_replace "$backup"
   if ! version_run backup "$backup"; then
     if $running; then
       version_run up
@@ -157,14 +161,13 @@ version_auto-upgrade() {
   fi
 
   if [[ -z $failure ]]; then
-    version_replace "commit: $message"
     # only .version is committed, other changes of the service are left alone.
     # Without a change there is nothing to commit, e.g. when an upgrade is
     # repeated after its backup was restored by hand
     if [[ -n $(git status --porcelain -- .version) ]]; then
       git add .version && git commit -m "$message" -- .version || failure="commit"
     fi
-    [[ -n $failure ]] || version_run backup "commit: $message" || failure="backup"
+    [[ -n $failure ]] || version_run backup "$commit" || failure="backup"
     if [[ -n $failure ]]; then
       echo "[VERSION] Upgraded $SERVICE_DIR_NAME, but the $failure failed"
       exit 1

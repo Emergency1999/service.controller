@@ -253,7 +253,8 @@ version_search() {
 }
 
 # version_list: the backups with the digests and tags that the history holds
-# for the short hashes in their names, and the installed version the same way
+# for the short hashes in their names, and the installed version the same way.
+# A name may end with a counter, see version_unique.
 version_list() {
   local archives archive short repo digest name var installed=""
   echo "[VERSION] Versions replaced by auto-upgrade:"
@@ -261,7 +262,8 @@ version_list() {
 
   for archive in $archives; do
     echo "$archive"
-    for short in $(tr '_' '\n' <<<"${archive#"$VERSION_ARCHIVE"}"); do
+    short="${archive#"$VERSION_ARCHIVE"}"
+    for short in $(tr '_' '\n' <<<"${short%.*}"); do
       read -r repo digest < <(awk -F'\t' -v s="$short" '$5 == s { print $2, $3; exit }' "$SERVICE_DIR/$VERSION_HISTORY") || continue
       version_describe "" "$repo" "$digest"
     done

@@ -103,7 +103,8 @@ subcommand modules:
   `backup +upgrade-from-<short hashes>` → write `.version` → `up` → wait until healthy → commit of `.version`, nothing else;
   if the service does not get healthy, the backup is restored. It needs the borg repository to be
   reachable. Only the names of backups and commits hold short hashes, the first 12 characters of
-  a digest: borg takes names of up to 255 characters.
+  a digest: borg takes names of up to 255 characters. No backup is deleted: if a name is taken,
+  e.g. by the backup of an upgrade that failed, the new one gets a counter (`+upgrade-from-<…>.2`).
 - **Registries** — a client in [versions/registries/](versions/registries/) knows the API of a
   registry (Docker Hub only so far): the digest of a tag, the tags of a digest, the tags of a repo.
   Everything works without a client as well: the digest of a tag is asked through docker if there
