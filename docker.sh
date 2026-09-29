@@ -130,6 +130,8 @@ docker_stop() {
 }
 
 docker_pull() {
+  version_init
+
   exec_attachment setup
   exec_attachment pull
   docker compose -p $SERVICE_DIR_NAME pull "$@"

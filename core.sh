@@ -66,7 +66,7 @@ source $CORE_DIR/func_generate.sh
 load_env() {
   set -o allexport
   source $SERVICE_DIR/.env
-  if [[ -f $SERVICE_DIR/.version ]]; then
+  if [[ -s $SERVICE_DIR/.version ]]; then
     source $SERVICE_DIR/.version
   fi
   set +o allexport

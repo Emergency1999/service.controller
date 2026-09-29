@@ -3,6 +3,7 @@ version_registries+=([docker.io]="dockerhub")
 
 DOCKERHUB_API=https://hub.docker.com/v2/repositories
 DOCKERHUB_MAX_PAGES=5 # pages of 100 tags searched for a digest
+DOCKERHUB_MAX_LIST_PAGES=10 # pages of 100 tags listed for a wildcard target, Docker Hub offers no more
 
 # registry_dockerhub_digest <repo> <tag>: the digest the tag points to.
 # It is the digest of the image for this host's architecture, not of the
@@ -28,13 +29,34 @@ registry_dockerhub_tags() {
     body=$(curl -fsS "$url") || return 1
     found=$(jq -r --arg d "$2" '.results[]
       | select(.digest == $d or any(.images[]; .digest == $d))
-      | .name' <<<"$body")
+      | .name' <<<"$body") || return 1
     if [[ -n $found ]]; then
       seen=1
       echo "$found"
     elif [[ -n $seen ]]; then
       break
     fi
+    url=$(jq -r '.next // empty' <<<"$body")
+    [[ -n $url ]] || break
+  done
+}
+
+# registry_dockerhub_list <repo> <filter> <known>: the tags that hold the
+# filter and have an image for this host's architecture, one per line, newest
+# first. Ends with the page that holds the known tag.
+registry_dockerhub_list() {
+  local repo="$1" arch url body page
+  [[ $repo == */* ]] || repo="library/$repo"
+  arch=$(docker version --format '{{.Server.Arch}}')
+
+  url="$DOCKERHUB_API/$repo/tags?page_size=100&ordering=last_updated&name=$2"
+  for ((page = 1; page <= DOCKERHUB_MAX_LIST_PAGES; page++)); do
+    body=$(curl -fsS "$url") || return 1
+    jq -r --arg a "$arch" '.results[]
+      | select(any(.images[]; .os == "linux" and .architecture == $a))
+      | .name' <<<"$body" || return 1
+
+    [[ -z $3 ]] || ! jq -e --arg k "$3" 'any(.results[]; .name == $k)' <<<"$body" >/dev/null || break
     url=$(jq -r '.next // empty' <<<"$body")
     [[ -n $url ]] || break
   done

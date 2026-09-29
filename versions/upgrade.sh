@@ -1,6 +1,6 @@
 # AUTO-UPGRADE
 
-VERSION_TIMEOUT=60 # seconds a service has to get healthy in after an upgrade
+VERSION_TIMEOUT=300 # seconds a service has to get healthy in after an upgrade
 VERSION_SETTLE=10  # seconds a service is left alone before its health is looked at
 
 # version_run <command...>: runs a command of this service in a process of its
@@ -66,37 +66,37 @@ version_replace() {
 }
 
 version_auto-upgrade() {
-  local name repo target current new rc i old_label new_label
+  local name repo target current new short i
   local from="" to="" running=false failure=""
   local -a names=() digests=()
 
   version_check
 
   for name in $(version_names); do
-    rc=0
-    version_load "$name" || rc=$?
-    if [[ $rc -eq $VERSION_UNSUPPORTED ]]; then
-      echo "[VERSION] Skipping $name: registry of $repo is not supported"
-      continue
-    elif [[ $rc -ne 0 ]]; then
+    if ! version_load "$name"; then
       echo "[VERSION] $repo:$target not found in the registry"
       exit 1
     fi
     [[ $new != "$current" ]] || continue
 
-    old_label=$(version_label "$repo" "$current")
-    new_label=$(version_label "$repo" "$new")
     names+=("$name")
     digests+=("$new")
-    from+="${from:+_}$old_label"
-    to+="${to:+_}$new_label"
-    echo "[VERSION] Upgrade $name from $old_label to $new_label"
+    # backups are named by the short hashes, which the history holds as well
+    [[ -z $current ]] || version_remember "" "$repo" "$current"
+    short="${current:7:12}"
+    from+="${from:+_}${short:-none}"
+    to+="${to:+_}${new:7:12}"
+    echo "[VERSION] Upgrade $name from ${current:-none}"
+    echo "                  ${name//?/ } to   $new"
   done
 
   if [[ ${#names[@]} -eq 0 ]]; then
     echo "[VERSION] $SERVICE_DIR_NAME is up to date"
     return 0
   fi
+
+  local backup="$VERSION_ARCHIVE$from"
+  local message="upgrade-to-$to"
 
   failure=$(version_unhealthy)
   if [[ -n $failure ]]; then
@@ -106,6 +106,10 @@ version_auto-upgrade() {
   fi
   if [[ -n $(version_containers) ]]; then
     running=true
+  fi
+  if ! version_borg info >/dev/null; then
+    echo "[VERSION] The borg repository is not reachable, aborting"
+    exit 1
   fi
 
   if [[ $1 != "-y" ]]; then
@@ -120,9 +124,6 @@ version_auto-upgrade() {
       ;;
     esac
   fi
-
-  local backup="$VERSION_ARCHIVE$from"
-  local message="upgrade-from-$from-to-$to"
 
   echo "[VERSION] Pulling the new images..."
   for i in "${!names[@]}"; do
@@ -172,12 +173,11 @@ version_auto-upgrade() {
   fi
 
   echo "[VERSION] Upgrade failed, restoring '$backup'..."
-  version_run down
-  version_run borg restore-diff "$backup" --clean-git
-  if $running; then
-    version_run up
+  if version_run down && version_run borg restore-diff "$backup" --clean-git && { ! $running || version_run up; }; then
+    echo "[VERSION] Upgrade of $SERVICE_DIR_NAME was rolled back, $failure"
+  else
+    echo "[VERSION] Upgrade of $SERVICE_DIR_NAME failed and so did the rollback, restore '$backup' by hand."
+    echo "          $failure"
   fi
-
-  echo "[VERSION] Upgrade of $SERVICE_DIR_NAME was rolled back, $failure"
   exit 1
 }

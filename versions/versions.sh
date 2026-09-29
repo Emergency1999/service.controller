@@ -2,12 +2,12 @@
 # A service with a .version file has its image versions managed. The file holds
 # three variables per image:
 #   <name>_REPO     the image, without tag
-#   <name>_TARGET   the tag that is followed
+#   <name>_TARGET   the tag that is followed, "*" stands for the highest number
 #   <name>_CURRENT  the digest that is installed
 declare -A version_commands=(
-  [info]=":Show the current and the target tags of every image"
+  [info]=":Show the current and the target hash of every image with their tags"
   [search]="<hash/tag> [name]:Show all tags that belong to a hash or tag, name is required with several images"
-  [list]=":List the backups of the versions replaced by auto-upgrade"
+  [list]=":List the backups of the versions replaced by auto-upgrade with their tags"
   ["auto-upgrade"]="[-y]:Upgrade to the digests the target tags point to"
 )
 
@@ -28,7 +28,7 @@ cmd_version() {
     exit 1
   fi
 
-  if [[ ! -f "$SERVICE_DIR/.version" ]]; then
+  if [[ ! -s "$SERVICE_DIR/.version" ]]; then
     echo "[VERSION] $SERVICE_DIR_NAME has no .version file"
     exit 1
   fi
@@ -39,6 +39,7 @@ cmd_version() {
 }
 
 source "$CORE_DIR/versions/registry.sh"
+source "$CORE_DIR/versions/wildcard.sh"
 source "$CORE_DIR/versions/upgrade.sh"
 
 # FUNCTIONS
@@ -83,33 +84,24 @@ version_load() {
 }
 
 # version_init: gives every image with an empty <name>_CURRENT the digest its
-# target points to. Called by docker_up, a service without a .version file is
-# left alone.
+# target points to. Called by docker_up and docker_pull, a service without a
+# .version file is left alone.
 version_init() {
-  local name var repo target current new rc i
-  local -a names=() repos=() digests=()
+  local name var repo target current new i
+  local -a names=() digests=()
 
-  [[ -f "$SERVICE_DIR/.version" ]] || return 0
+  [[ -s "$SERVICE_DIR/.version" ]] || return 0
   version_check
 
   for name in $(version_names); do
     var="${name}_CURRENT"
     [[ -z ${!var} ]] || continue
 
-    rc=0
-    version_load "$name" || rc=$?
-    # a registry without a client still knows the digest of a tag
-    if [[ $rc -eq $VERSION_UNSUPPORTED ]]; then
-      rc=0
-      new=$(version_digest_docker "$repo" "$target") || rc=$?
-    fi
-    if [[ $rc -ne 0 ]]; then
+    if ! version_load "$name"; then
       echo "[VERSION] $repo:$target not found in the registry"
       exit 1
     fi
-
     names+=("$name")
-    repos+=("$repo")
     digests+=("$new")
   done
 
@@ -117,28 +109,8 @@ version_init() {
   for i in "${!names[@]}"; do
     sed -i "s|^${names[i]}_CURRENT=.*|${names[i]}_CURRENT=${digests[i]}|" .version
     export "${names[i]}_CURRENT=${digests[i]}"
-    echo "[VERSION] Initialized ${names[i]} to $(version_label "${repos[i]}" "${digests[i]}")"
+    echo "[VERSION] Initialized ${names[i]} to ${digests[i]}"
   done
-}
-
-# version_name <tags>: the version the tags stand for, which is the longest
-# tag made of numbers ("v1.10.4"), else the longest that starts with a number
-version_name() {
-  local tags
-  tags=$(tr ',' '\n' <<<"$1")
-  { grep -E '^v?[0-9]+(\.[0-9]+)*$' <<<"$tags" || grep -E '^v?[0-9]' <<<"$tags" || true; } |
-    awk '{ print length, $0 }' | sort -rn | head -n1 | cut -d' ' -f2-
-}
-
-# version_label <repo> <digest>: <version>-<short hash>
-version_label() {
-  local name
-  if [[ -z $2 ]]; then
-    echo "none"
-    return
-  fi
-  name=$(version_name "$(version_tags "$1" "$2")")
-  echo "${name:+$name-}${2:7:12}"
 }
 
 # version_describe <label> <repo> <digest>: prints the hash and the tags of a
@@ -160,25 +132,12 @@ version_describe() {
   printf '          %-8stags: %s\n' "" "${tags//,/, }"
 }
 
-# version_find <repo> <hash/tag>: the digest that a full hash, a short hash
-# from the history or a tag stands for
+# version_find <repo> <hash/tag>: the digest that a hash or a tag stands for
 version_find() {
-  local digest
-
   if [[ $2 =~ ^(sha256:)?([0-9a-f]{64})$ ]]; then
     echo "sha256:${BASH_REMATCH[2]}"
     return
   fi
-
-  if [[ $2 =~ ^[0-9a-f]+$ && -f $SERVICE_DIR/$VERSION_HISTORY ]]; then
-    digest=$(awk -F'\t' -v r="$1" -v h="sha256:$2" \
-      '$2 == r && index($3, h) == 1 { print $3; exit }' "$SERVICE_DIR/$VERSION_HISTORY")
-    if [[ -n $digest ]]; then
-      echo "$digest"
-      return
-    fi
-  fi
-
   version_digest "$1" "$2"
 }
 
@@ -198,11 +157,6 @@ version_info() {
   for name in $(version_names); do
     rc=0
     version_load "$name" || rc=$?
-    # a registry without a client still knows the digest of a tag
-    if [[ $rc -eq $VERSION_UNSUPPORTED ]]; then
-      rc=0
-      new=$(version_digest_docker "$repo" "$target") || rc=$?
-    fi
 
     echo "[VERSION] $name: $repo:$target"
     version_describe current "$repo" "$current"
@@ -253,17 +207,11 @@ version_search() {
   fi
 
   var="${name}_REPO" && repo="${!var}"
-  digest=$(version_find "$repo" "$query") || rc=$?
-
-  if [[ $rc -eq $VERSION_UNSUPPORTED ]]; then
-    echo "[VERSION] $name: registry of $repo is not supported"
-    return
-  elif [[ $rc -ne 0 ]]; then
+  if ! digest=$(version_find "$repo" "$query"); then
     echo "[VERSION] $name: $query not found in $repo"
-    return
+    exit 1
   fi
 
-  rc=0
   tags=$(version_tags "$repo" "$digest") || rc=$?
   if [[ $rc -eq $VERSION_UNSUPPORTED ]]; then
     tags="registry is not supported"
@@ -274,9 +222,21 @@ version_search() {
   echo "[VERSION] $name: $repo"
   echo "          hash: $digest"
   echo "          tags: ${tags//,/, }"
+  [[ $rc -eq 0 ]] || exit 1
 }
 
+# version_list: the backups with the digests and tags that the history holds
+# for the short hashes in their names
 version_list() {
+  local archives archive short repo digest
   echo "[VERSION] Versions replaced by auto-upgrade:"
-  version_borg list --glob-archives "$VERSION_ARCHIVE*"
+  archives=$(version_borg list --glob-archives "$VERSION_ARCHIVE*" --format '{archive}{NL}')
+
+  for archive in $archives; do
+    echo "$archive"
+    for short in $(tr '_' '\n' <<<"${archive#"$VERSION_ARCHIVE"}"); do
+      read -r repo digest < <(awk -F'\t' -v s="$short" '$5 == s { print $2, $3; exit }' "$SERVICE_DIR/$VERSION_HISTORY") || continue
+      version_describe "" "$repo" "$digest"
+    done
+  done
 }

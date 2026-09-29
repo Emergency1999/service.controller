@@ -97,12 +97,27 @@ subcommand modules:
 - **Image versions** — a service with a `.version` file pins its images by digest. The file holds
   `<NAME>_REPO`, `<NAME>_TARGET` (the tag that is followed) and `<NAME>_CURRENT` (the installed
   digest) per image, is loaded together with `.env`, and `docker-compose.yml` has to use
-  `image: ${<NAME>_REPO}@${<NAME>_CURRENT}`. `up` checks that and fills every empty `CURRENT` with
-  the digest its target points to. `version auto-upgrade` moves `CURRENT` to the digest
-  the target points to: pull → `down` → `backup +upgrade-from-<version>-<hash>` → write `.version` →
-  `up` → wait until healthy → `commit`; if the service does not get healthy, the backup is restored.
-  Registry clients live in [versions/registries/](versions/registries/) (Docker Hub only so far);
-  the tags of a digest are cached in the service's `.version-history.tsv`.
+  `image: ${<NAME>_REPO}@${<NAME>_CURRENT}`. An empty `.version` counts as none. Digests are always
+  written in full. `up` and `pull` fill every empty `CURRENT` with the digest its target points to.
+  `version auto-upgrade` moves `CURRENT` to the digest the target points to: pull → `down` →
+  `backup +upgrade-from-<short hashes>` → write `.version` → `up` → wait until healthy → `commit`;
+  if the service does not get healthy, the backup is restored. It needs the borg repository to be
+  reachable. Only the names of backups and commits hold short hashes, the first 12 characters of
+  a digest: borg takes names of up to 255 characters.
+- **Registries** — a client in [versions/registries/](versions/registries/) knows the API of a
+  registry (Docker Hub only so far): the digest of a tag, the tags of a digest, the tags of a repo.
+  Everything works without a client as well: the digest of a tag is asked through docker if there
+  is no client or the client does not find it, which counts as a pull where pulls are limited.
+  Only the tags of a digest stay unknown without a client.
+- **Version history** — the service's `.version-history.tsv` holds per digest the tag that led to
+  it, the tags the registry knew for it and its short hash, by which the backups of
+  `version auto-upgrade` are named. It is the only cache and is never brought up to date, it tells
+  what a digest was when it was found.
+- **Wildcard targets** — a `TARGET` may hold `*` in place of a number (`8.*.*`, `8.*.*-rc`). It
+  stands for the tag with the highest numbers, the leftmost number counting most, see
+  [versions/wildcard.sh](versions/wildcard.sh). With a client the tag is picked from the tags of
+  the repo. Without one it is found by counting up from the highest tag of the history, or from 0
+  and 1 if there is none; a number that is missing ends the counting.
 - **Protected backups** — `borg prune` skips archives whose name starts with `+`. borg 1.x can only
   select archives by a glob, not exclude them, hence the single marker character.
 - **Template generation** — [func_generate.sh](func_generate.sh) `generate <template> <output>`
