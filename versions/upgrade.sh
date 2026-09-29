@@ -86,8 +86,9 @@ version_auto-upgrade() {
     short="${current:7:12}"
     from+="${from:+_}${short:-none}"
     to+="${to:+_}${new:7:12}"
-    echo "[VERSION] Upgrade $name from ${current:-none}"
-    echo "                  ${name//?/ } to   $new"
+    echo "[VERSION] Upgrade $name: $repo:$target"
+    version_describe from "$repo" "$current"
+    version_describe to "$repo" "$new"
   done
 
   if [[ ${#names[@]} -eq 0 ]]; then
