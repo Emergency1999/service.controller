@@ -8,6 +8,7 @@ declare -A version_commands=(
   [add]="<name> <repo> <target>:Add an image to .version and show its line for docker-compose.yml"
   [info]=":Show the current and the target hash of every image with their tags"
   [search]="<hash/tag> [name]:Show all tags that belong to a hash or tag, name is required with several images"
+  [running]=":Show the hash of the image of every running container with its tags"
   [list]=":List the backups of the versions replaced by auto-upgrade and the installed version with their tags"
   ["auto-upgrade"]="[-y]:Upgrade to the digests the target tags point to"
 )
@@ -29,7 +30,7 @@ cmd_version() {
     exit 1
   fi
 
-  if [[ $command != "add" && ! -s "$SERVICE_DIR/.version" ]]; then
+  if [[ $command != "add" && $command != "running" && ! -s "$SERVICE_DIR/.version" ]]; then
     echo "[VERSION] $SERVICE_DIR_NAME has no .version file"
     exit 1
   fi
@@ -211,6 +212,36 @@ version_info() {
   if [[ -n $missing_names ]]; then
     echo "[VERSION] Target not found: $missing_names"
   fi
+}
+
+# version_running: the image of every running container. One that was started
+# by a tag has the digest the tag had when it was pulled, which is the one of
+# all architectures and not the one a .version would hold.
+version_running() {
+  local ids id name image identity repo digest
+  ids=$(docker compose -p $SERVICE_DIR_NAME ps -q)
+
+  if [[ -z $ids ]]; then
+    echo "[VERSION] No container of $SERVICE_DIR_NAME is running"
+    return 0
+  fi
+
+  for id in $ids; do
+    read -r name image identity < <(docker inspect --format '{{.Name}} {{.Config.Image}} {{.Image}}' "$id")
+    repo="${image%@*}"
+    # what follows the last colon is a tag, unless it is the port of a registry
+    [[ ${repo##*:} == */* ]] || repo="${repo%:*}"
+    if [[ $image == *@* ]]; then
+      digest="${image#*@}"
+    else
+      digest=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$identity" | sed -n 's/.*@//p' | head -n1)
+      # an image whose tag was pulled again has lost its name, not its digest
+      digest="${digest:-$identity}"
+    fi
+
+    echo "[VERSION] ${name#/}: $image"
+    version_describe running "$repo" "$digest"
+  done
 }
 
 version_search() {
