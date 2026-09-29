@@ -9,8 +9,7 @@ name_prompt() {
     # prompt user to use the latest backup
     # "generate" uses YES as default
     printf "[BORG] Generate default backup name?(Y/n): "
-    read -n 1 -r
-    echo
+    read -r
     case "$REPLY" in
     [nN][oO] | [nN])
       echo "       exiting"
@@ -24,8 +23,7 @@ name_prompt() {
     # prompting user to use the latest backup
     # "latest" uses NO as default
     printf "[BORG] Use latest backup?(y/N): "
-    read -n 1 -r
-    echo
+    read -r
     case "$REPLY" in
     [yY][eE][sS] | [yY])
       name="latest"
@@ -144,8 +142,7 @@ borg_check_git_before_restore() {
   if [[ -n $(git status --porcelain) ]]; then
     echo "[BORG] Uncommitted changes exist in $SERVICE_DIR_NAME!"
     printf "[BORG] Do you want to continue with the restore?(y/N): "
-    read -n 1 -r
-    echo
+    read -r
     case "$REPLY" in
     [yY][eE][sS] | [yY])
       ;;

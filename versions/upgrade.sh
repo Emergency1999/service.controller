@@ -120,10 +120,9 @@ version_auto-upgrade() {
 
   if [[ $1 != "-y" ]]; then
     printf "[VERSION] Proceed?(y/N): "
-    read -n 1 -r
-    echo
+    read -r
     case "$REPLY" in
-    [yY]) ;;
+    [yY][eE][sS] | [yY]) ;;
     *)
       echo "          exiting"
       exit 1
