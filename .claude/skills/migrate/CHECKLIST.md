@@ -37,9 +37,9 @@ stack".
 
 ## 3. Scaffold (Claude)
 
-- [ ] `cd $BASE_DIR && printf 'n\n' | ./controller.sh create <name> <template>` — the piped
-      answer handles the interactive Borg prompt; pipe `y` instead if the plan decided to init
-      borg now.
+- [ ] `cd $BASE_DIR && printf 'y\nn\n' | ./controller.sh create <name> <template>` — the piped
+      `y` confirms the template, the `n` handles the interactive Borg prompt; pipe `y` as
+      second answer instead if the plan decided to init borg now.
 
 ## 4. Adapt scaffolded files (Claude)
 

@@ -64,10 +64,8 @@ cmd_create() {
   fi
   if [[ -z "$template" ]]; then
     if [[ -d "$CORE_DIR/templates/$service_name" ]]; then
-      echo "Using template '$service_name'"
       template="$service_name"
     else
-      echo "Using default template"
       template="default"
     fi
   fi
@@ -83,6 +81,16 @@ cmd_create() {
     echo "Template '$template' does not exist"
     exit 1
   fi
+
+  local confirm_input
+  read -p "Template '$template' will be used for service '$service_name'. Create now? (y/N): " confirm_input
+  case "$confirm_input" in
+  [yY][eE][sS] | [yY]) ;;
+  *)
+    echo "Aborting"
+    exit 0
+    ;;
+  esac
 
   cp -r "$template_dir" "$BASE_DIR/$service_name"
   chmod +x "$BASE_DIR/$service_name/service.sh"

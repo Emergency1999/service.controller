@@ -142,12 +142,13 @@ After plan approval, Claude scaffolds + edits:
 
 ```bash
 cd $BASE_DIR
-printf 'n\n' | ./controller.sh create <name> <template>   # creates $BASE_DIR/<name>, git init
+printf 'y\nn\n' | ./controller.sh create <name> <template>   # creates $BASE_DIR/<name>, git init
 ```
 
-The piped answer handles `create`'s interactive "init a Borg repository now?" prompt, which
-would otherwise hang or abort a non-interactive run. Pipe `y` instead of `n` if the plan
-decided to init borg now; default is `n` — defer until after the first successful start.
+The piped answers handle `create`'s two interactive prompts, which would otherwise hang or
+abort a non-interactive run: `y` confirms the selected template, `n` answers "init a Borg
+repository now?". Pipe `y` instead of `n` as the second answer if the plan decided to init
+borg now; default is `n` — defer until after the first successful start.
 
 Then Claude edits `$BASE_DIR/<name>/docker-compose.yml`, `.env`, `service.sh` to match the plan.
 

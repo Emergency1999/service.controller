@@ -96,10 +96,11 @@ If the sources conflict or leave a real gap, ask the user — cheap to ask, expe
 
 ```bash
 cd $BASE_DIR
-printf 'n\n' | ./controller.sh create <name>
+printf 'y\nn\n' | ./controller.sh create <name>
 ```
 
-The `printf 'n'` answers the interactive "create a Borg repository now?" prompt with **no** —
+The piped `y` confirms the "Template '…' will be used … Create now?" prompt; the `n` answers
+the interactive "create a Borg repository now?" prompt with **no** —
 borg init is deferred until after the first successful start (an empty-service backup is
 useless, and the prompt would otherwise hang or abort a non-interactive run). `create` copies
 the default template, makes `service.sh` executable, and git-inits the service dir with an
@@ -190,8 +191,8 @@ When the user reports problems, work the stack top-down:
 
 ## Pitfalls
 
-- **Interactive prompt in `create`.** Without `printf 'n\n' |` the borg question blocks (or
-  kills the run via `set -e` on EOF). Always pipe the answer.
+- **Interactive prompts in `create`.** Without `printf 'y\nn\n' |` the template confirmation
+  and the borg question block (or kill the run via `set -e` on EOF). Always pipe the answers.
 - **`latest` or missing arch.** Verify the pinned tag exists for this host's architecture
   (`docker manifest inspect <image>:<tag>` if unsure) — some projects only publish amd64.
 - **Named volumes hide the data path.** Upstream examples love `dbdata:`-style named volumes;

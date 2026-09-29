@@ -25,8 +25,8 @@ sources only, versions pinned".
 
 ## 2. Scaffold (Claude)
 
-- [ ] `cd $BASE_DIR && printf 'n\n' | ./controller.sh create <name>` — the piped `n` declines
-      borg init (deferred to step 6).
+- [ ] `cd $BASE_DIR && printf 'y\nn\n' | ./controller.sh create <name>` — the piped `y` confirms
+      the template, the `n` declines borg init (deferred to step 6).
 
 ## 3. Draft files (Claude)
 
