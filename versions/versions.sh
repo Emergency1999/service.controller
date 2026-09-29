@@ -5,6 +5,7 @@
 #   <name>_TARGET   the tag that is followed, "*" stands for the highest number
 #   <name>_CURRENT  the digest that is installed
 declare -A version_commands=(
+  [add]="<name> <repo> <target>:Add an image to .version and show its line for docker-compose.yml"
   [info]=":Show the current and the target hash of every image with their tags"
   [search]="<hash/tag> [name]:Show all tags that belong to a hash or tag, name is required with several images"
   [list]=":List the backups of the versions replaced by auto-upgrade with their tags"
@@ -28,7 +29,7 @@ cmd_version() {
     exit 1
   fi
 
-  if [[ ! -s "$SERVICE_DIR/.version" ]]; then
+  if [[ $command != "add" && ! -s "$SERVICE_DIR/.version" ]]; then
     echo "[VERSION] $SERVICE_DIR_NAME has no .version file"
     exit 1
   fi
@@ -146,6 +147,26 @@ version_borg() {
   borg_check
   BORG_RSH="$(echo $BORG_RSH | sed "s/~/\/home\/$USER/g")"
   sudo -E borg "$@"
+}
+
+version_add() {
+  local name="${1^^}" repo="$2" target="$3"
+
+  if [[ -z $name || -z $repo || -z $target ]]; then
+    echo "[VERSION] name, repo and target are required"
+    exit 1
+  fi
+  if grep -qs "^${name}_REPO=" .version; then
+    echo "[VERSION] $name is in .version already"
+    exit 1
+  fi
+
+  # a last line without its end would take up the first one that is added
+  [[ ! -s .version || -z $(tail -c1 .version) ]] || echo >>.version
+  printf '%s_REPO=%s\n%s_TARGET=%s\n%s_CURRENT=\n' "$name" "$repo" "$name" "$target" "$name" >>.version
+
+  echo "[VERSION] Added $name to .version, use it in docker-compose.yml as"
+  echo "          image: \${${name}_REPO}@\${${name}_CURRENT}"
 }
 
 version_info() {
