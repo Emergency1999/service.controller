@@ -181,12 +181,12 @@ version_add() {
 
   echo "[VERSION] Added $name to .version"
 
-  # the image lines of the repo, with any tag or digest, quoted or not
+  # the image lines of the repo: whatever follows the repo is replaced
   local image="\${${name}_REPO}@\${${name}_CURRENT}" lines
-  local line="^([[:space:]]*image:[[:space:]]*)[\"']?${repo//./\\.}([:@][^\"'[:space:]#]*)?[\"']?([[:space:]]*#.*)?$"
+  local line="^([[:space:]]*image:[[:space:]]*)[\"']?${repo//./\\.}([:@\"'].*)?[[:space:]]*$"
   lines=$(grep -sE "$line" docker-compose.yml | sed 's/^[[:space:]]*//')
   if [[ -n $lines ]]; then
-    sed -i -E "s|$line|\1$image\3|" docker-compose.yml
+    sed -i -E "s|$line|\1$image|" docker-compose.yml
     echo "[VERSION] Replaced in docker-compose.yml by image: $image"
     echo "$lines" | sed 's/^/          /'
   else
