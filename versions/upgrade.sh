@@ -107,7 +107,7 @@ version_auto-upgrade() {
 
   local backup="$VERSION_ARCHIVE$from"
   local message="upgrade-to-$to"
-  local commit="commit: $message"
+  local commit="+commit: $message"
 
   failure=$(version_unhealthy)
   if [[ -n $failure ]]; then

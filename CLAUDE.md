@@ -122,7 +122,8 @@ subcommand modules:
   [versions/wildcard.sh](versions/wildcard.sh). With a client the tag is picked from the tags of
   the repo. Without one it is found by counting up from the highest tag of the history, or from 0
   and 1 if there is none; a number that is missing ends the counting.
-- **Protected backups** — `borg prune` skips archives whose name starts with `+`. borg 1.x can only
+- **Protected backups** — `borg prune` skips archives whose name starts with `+`: the backups of
+  `auto-upgrade` and of `commit`. borg 1.x can only
   select archives by a glob, not exclude them, hence the single marker character.
 - **Template generation** — [func_generate.sh](func_generate.sh) `generate <template> <output>`
   expands `${VAR}` references using `envsubst`; used by services that need dynamic config files written

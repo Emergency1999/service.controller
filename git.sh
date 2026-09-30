@@ -1,7 +1,7 @@
 #!/bin/bash
 # GIT COMMANDS
 declare -A git_commands=(
-  [commit]="<message>:Add and commit all changes with <message> and create a borg backup"
+  [commit]="<message>:Add and commit all changes with <message> and create a borg backup that is never pruned"
   [configure]=":Configure git user.name and user.email"
 )
 
@@ -49,7 +49,8 @@ git_commit() {
   git add .
   git commit -m "$message"
   echo "Committed changes with message: $message"
-  borg_backup "commit: $message"
+  # a backup starting with "+" is never pruned
+  borg_backup "+commit: $message"
 }
 
 git_configure() {
