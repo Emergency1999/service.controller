@@ -362,7 +362,7 @@ version_history() {
       lines+="$(version_describe "$name" "$repo" "$digest")"$'\n'
     done
     [[ -z $only || -n $lines ]] || continue
-    echo "$archive  $time"
+    echo "$time  $archive"
     printf '%s' "$lines"
   done <<<"$archives"
 
