@@ -185,7 +185,7 @@ version_auto-upgrade() {
     if [[ -n $(git status --porcelain -- .version) ]]; then
       git add .version && git commit -m "$message" -- .version || failure="commit"
     fi
-    [[ -n $failure ]] || version_run backup "$commit" || failure="backup"
+    [[ -n $failure ]] || BORG_WARNINGS_OK=1 version_run backup "$commit" || failure="backup"
     if [[ -n $failure ]]; then
       echo "[VERSION] Upgraded $SERVICE_DIR_NAME, but the $failure failed"
       exit 1

@@ -115,12 +115,18 @@ borg_list() {
   sudo -E borg list
 }
 
+# borg_backup <name>: with BORG_WARNINGS_OK=1 a backup that borg only warned
+# about counts, e.g. one with a file that changed while it was read
 borg_backup() {
   borg_check_name "$1" "generate"
 
   echo "[BORG] Backup current data..."
+  set +e # disable exit on error
   sudo -E borg create --stats --progress --compression zlib "::$name" .
-  if [ $? -ne 0 ]; then
+  local rc=$?
+  set -e # enable exit on error
+  # borg ends with 1 when it only warned, with 2 when it failed
+  if [ $rc -ne 0 ] && { [ $rc -ne 1 ] || [ "${BORG_WARNINGS_OK:-0}" != 1 ]; }; then
     echo "[BORG] Backup failed"
     exit 1
   fi

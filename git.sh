@@ -49,8 +49,8 @@ git_commit() {
   git add .
   git commit -m "$message"
   echo "Committed changes with message: $message"
-  # a backup starting with "+" is never pruned
-  borg_backup "+commit: $message"
+  # a backup starting with "+" is never pruned; the service runs, so a file may change meanwhile
+  BORG_WARNINGS_OK=1 borg_backup "+commit: $message"
 }
 
 git_configure() {
