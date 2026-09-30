@@ -5,11 +5,11 @@
 #   <name>_TARGET   the tag that is followed, "*" stands for the highest number
 #   <name>_CURRENT  the digest that is installed
 declare -A version_commands=(
-  [add]="<name> <repo> <target>:Add an image to .version and show its line for docker-compose.yml"
+  [add]="<name> <repo> <target>:Add an image to .version and put it into docker-compose.yml"
   [info]=":Show the current and the target hash of every image with their tags"
-  [search]="<hash/tag> [name/repo]:Show all tags that belong to a hash or tag of an image of .version or of a repo"
+  [search]="<name/repo> <hash/tag>:Show all tags that belong to a hash or tag of an image of .version or of a repo"
   [running]=":Show the hash of the image of every running container with its tags and dates"
-  [list]=":List the backups of the versions replaced by auto-upgrade and the installed version with their tags"
+  [history]="[name]:List the backups of the versions replaced by auto-upgrade and the installed version, of one image or of all"
   ["auto-upgrade"]="[-y]:Upgrade to the digests the target tags point to"
 )
 
@@ -30,7 +30,7 @@ cmd_version() {
     exit 1
   fi
 
-  if [[ " info list auto-upgrade " == *" $command "* && ! -s "$SERVICE_DIR/.version" ]]; then
+  if [[ " info history auto-upgrade " == *" $command "* && ! -s "$SERVICE_DIR/.version" ]]; then
     echo "[VERSION] $SERVICE_DIR_NAME has no .version file"
     exit 1
   fi
@@ -179,8 +179,20 @@ version_add() {
   [[ ! -s .version || -z $(tail -c1 .version) ]] || echo >>.version
   printf '%s_REPO=%s\n%s_TARGET=%s\n%s_CURRENT=\n' "$name" "$repo" "$name" "$target" "$name" >>.version
 
-  echo "[VERSION] Added $name to .version, use it in docker-compose.yml as"
-  echo "          image: \${${name}_REPO}@\${${name}_CURRENT}"
+  echo "[VERSION] Added $name to .version"
+
+  # the image lines of the repo, with any tag or digest, quoted or not
+  local image="\${${name}_REPO}@\${${name}_CURRENT}" lines
+  local line="^([[:space:]]*image:[[:space:]]*)[\"']?${repo//./\\.}([:@][^\"'[:space:]#]*)?[\"']?([[:space:]]*#.*)?$"
+  lines=$(grep -sE "$line" docker-compose.yml | sed 's/^[[:space:]]*//')
+  if [[ -n $lines ]]; then
+    sed -i -E "s|$line|\1$image\3|" docker-compose.yml
+    echo "[VERSION] Replaced in docker-compose.yml by image: $image"
+    echo "$lines" | sed 's/^/          /'
+  else
+    echo "[VERSION] No image of $repo found in docker-compose.yml, use it there as"
+    echo "          image: $image"
+  fi
 }
 
 version_info() {
@@ -273,26 +285,19 @@ version_running() {
   done
 }
 
-# version_search <hash/tag> [name/repo]: what is searched in is an image of
-# .version, given by its name, or else a repo. The only image of a .version
-# needs no name.
+# version_search <name/repo> <hash/tag>: what is searched in is an image of
+# .version, given by its name, or else a repo
 version_search() {
-  local query="$1" name="$2" names="" var repo digest tags rc=0
+  local name="$1" query="$2" names="" var repo digest tags rc=0
 
-  if [[ -z $query ]]; then
-    echo "[VERSION] hash or tag is required"
+  if [[ -z $name || -z $query ]]; then
+    echo "[VERSION] name or repo and hash or tag are required"
     exit 1
   fi
 
   if [[ -s "$SERVICE_DIR/.version" ]]; then
     names=$(version_names)
   fi
-  if [[ -z $name && $(grep -c . <<<"$names") -ne 1 ]]; then
-    echo "[VERSION] name or repo is required${names:+, .version has several images: ${names//$'\n'/, }}"
-    exit 1
-  fi
-  name="${name:-$names}"
-
   if grep -qxF "${name^^}" <<<"$names"; then
     var="${name^^}_REPO" && repo="${!var}"
     name="${name^^}: $repo"
@@ -319,31 +324,57 @@ version_search() {
   [[ $rc -eq 0 ]] || exit 1
 }
 
-# version_list: the backups with the digests and tags that the history holds
-# for the short hashes in their names, and the installed version the same way.
+# version_image <repo>: the name of the image of .version with the repo
+version_image() {
+  local name var
+  for name in $(version_names); do
+    var="${name}_REPO"
+    if [[ ${!var} == "$1" ]]; then
+      echo "$name"
+      return
+    fi
+  done
+}
+
+# version_history [name]: the backups with the digests and tags that the history
+# holds for the short hashes in their names, and the installed version the
+# same way, each digest with the name of its image. With a name only that
+# image and the backups that hold it.
 # A name may end with a counter, see version_unique.
-version_list() {
-  local archives archive short repo digest name var installed=""
+version_history() {
+  local only="${1^^}" archives archive short repo digest name var installed="" lines
+  if [[ -n $only ]] && ! version_names | grep -qxF "$only"; then
+    echo "[VERSION] $only is not in .version"
+    exit 1
+  fi
+
   echo "[VERSION] Versions replaced by auto-upgrade:"
   archives=$(version_borg list --glob-archives "$VERSION_ARCHIVE*" --format '{archive}{NL}')
 
   for archive in $archives; do
-    echo "$archive"
+    lines=""
     short="${archive#"$VERSION_ARCHIVE"}"
     for short in $(tr '_' '\n' <<<"${short%.*}"); do
       read -r repo digest < <(awk -F'\t' -v s="$short" '$5 == s { print $2, $3; exit }' "$SERVICE_DIR/$VERSION_HISTORY") || continue
-      version_describe "" "$repo" "$digest"
+      name=$(version_image "$repo")
+      [[ -z $only || $name == "$only" ]] || continue
+      lines+="$(version_describe "$name" "$repo" "$digest")"$'\n'
     done
+    [[ -z $only || -n $lines ]] || continue
+    echo "$archive"
+    printf '%s' "$lines"
   done
 
   echo "[VERSION] Installed version:"
   for name in $(version_names); do
+    [[ -z $only || $name == "$only" ]] || continue
     var="${name}_CURRENT" && short="${!var:7:12}"
     installed+="${installed:+_}${short:-none}"
   done
   echo "$installed"
   for name in $(version_names); do
+    [[ -z $only || $name == "$only" ]] || continue
     var="${name}_REPO" && repo="${!var}"
-    var="${name}_CURRENT" && version_describe "" "$repo" "${!var}"
+    var="${name}_CURRENT" && version_describe "$name" "$repo" "${!var}"
   done
 }

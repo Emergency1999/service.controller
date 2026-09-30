@@ -64,7 +64,7 @@ subcommand modules:
    — `init`, `backup`, `restore-fresh`, `restore-diff`, `export`, `list`, `prune`, `compact`, `break-lock`,
   plus `autobackup-enable/disable/now`. Each service has its own borg repo at `$BORG_REPO_BASE/<service>`.
 - [git.sh](git.sh) — `git commit <message>` (commits + creates a borg backup).
-- [versions/](versions/versions.sh) — `version add`, `info`, `running`, `search`, `list`, `auto-upgrade`. For
+- [versions/](versions/versions.sh) — `version add`, `info`, `running`, `search`, `history`, `auto-upgrade`. For
   services with a `.version` file, see "Image versions" below; `add`, `running` and `search` work
   without one.
 
