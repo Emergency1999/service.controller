@@ -9,7 +9,7 @@ declare -A version_commands=(
   [info]=":Show the current and the target hash of every image with their tags"
   [search]="<name/repo> <hash/tag>:Show all tags that belong to a hash or tag of an image of .version or of a repo"
   [running]=":Show the hash of the image of every running container with its tags and dates"
-  [history]="[name]:List the backups of the versions replaced by auto-upgrade and the installed version, of one image or of all"
+  [history]="[name]:List the backups of the versions replaced by auto-upgrade with their dates and the installed version, of one image or of all"
   ["auto-upgrade"]="[-y]:Upgrade to the digests the target tags point to"
 )
 
@@ -342,16 +342,17 @@ version_image() {
 # image and the backups that hold it.
 # A name may end with a counter, see version_unique.
 version_history() {
-  local only="${1^^}" archives archive short repo digest name var installed="" lines
+  local only="${1^^}" archives archive time short repo digest name var installed="" lines
   if [[ -n $only ]] && ! version_names | grep -qxF "$only"; then
     echo "[VERSION] $only is not in .version"
     exit 1
   fi
 
   echo "[VERSION] Versions replaced by auto-upgrade:"
-  archives=$(version_borg list --glob-archives "$VERSION_ARCHIVE*" --format '{archive}{NL}')
+  archives=$(version_borg list --glob-archives "$VERSION_ARCHIVE*" --format '{archive}{TAB}{time:%Y-%m-%d %H:%M}{NL}')
 
-  for archive in $archives; do
+  while IFS=$'\t' read -r archive time; do
+    [[ -n $archive ]] || continue
     lines=""
     short="${archive#"$VERSION_ARCHIVE"}"
     for short in $(tr '_' '\n' <<<"${short%.*}"); do
@@ -361,9 +362,9 @@ version_history() {
       lines+="$(version_describe "$name" "$repo" "$digest")"$'\n'
     done
     [[ -z $only || -n $lines ]] || continue
-    echo "$archive"
+    echo "$archive  $time"
     printf '%s' "$lines"
-  done
+  done <<<"$archives"
 
   echo "[VERSION] Installed version:"
   for name in $(version_names); do
