@@ -129,23 +129,27 @@ version_init() {
   done
 }
 
+# version_tagline <repo> <digest>: the tags of a digest for the eye, "unknown"
+# without any, followed by the tags that led to the digest in brackets unless
+# they are among them
+version_tagline() {
+  local tags tag pulled=""
+  tags=$(version_tags "$1" "$2") || tags=""
+  for tag in $(version_pulled "$1" "$2" | tr ',' ' '); do
+    [[ ",$tags," == *",$tag,"* ]] || pulled+="${pulled:+, }$tag"
+  done
+  echo "${tags:-unknown}${pulled:+ ($pulled)}" | sed 's/,\([^ ]\)/, \1/g'
+}
+
 # version_describe <label> <repo> <digest>: prints the hash and the tags of a
 # digest
 version_describe() {
-  local tags rc=0
   if [[ -z $3 ]]; then
     printf '          %-8shash: none\n' "$1"
     return
   fi
-
-  tags=$(version_tags "$2" "$3") || rc=$?
-  if [[ $rc -eq $VERSION_UNSUPPORTED ]]; then
-    tags="registry is not supported"
-  elif [[ $rc -ne 0 ]]; then
-    tags="no tags found"
-  fi
   printf '          %-8shash: %s\n' "$1" "$3"
-  printf '          %-8stags: %s\n' "" "${tags//,/, }"
+  printf '          %-8stags: %s\n' "" "$(version_tagline "$2" "$3")"
 }
 
 # version_find <repo> <hash/tag>: the digest that a hash or a tag stands for
@@ -295,7 +299,7 @@ version_running() {
 # version_search <name/repo> <hash/tag>: what is searched in is an image of
 # .version, given by its name, or else a repo
 version_search() {
-  local name="$1" query="$2" names="" var repo digest tags rc=0
+  local name="$1" query="$2" names="" var repo digest tags
 
   if [[ -z $name || -z $query ]]; then
     echo "[VERSION] name or repo and hash or tag are required"
@@ -318,17 +322,11 @@ version_search() {
     exit 1
   fi
 
-  tags=$(version_tags "$repo" "$digest") || rc=$?
-  if [[ $rc -eq $VERSION_UNSUPPORTED ]]; then
-    tags="registry is not supported"
-  elif [[ $rc -ne 0 ]]; then
-    tags="no tags found"
-  fi
-
+  tags=$(version_tagline "$repo" "$digest")
   echo "[VERSION] $name"
   echo "          hash: $digest"
-  echo "          tags: ${tags//,/, }"
-  [[ $rc -eq 0 ]] || exit 1
+  echo "          tags: $tags"
+  [[ $tags != "unknown" ]] || exit 1
 }
 
 # version_image <repo>: the name of the image of .version with the repo

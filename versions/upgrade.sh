@@ -152,6 +152,8 @@ version_auto-upgrade() {
     export "${names[i]}_CURRENT=${digests[i]}"
   done
   cmd_docker pull
+  # images that are built on one of the new ones are built anew
+  cmd_docker build
 
   if $running; then
     version_run down

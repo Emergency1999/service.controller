@@ -80,16 +80,21 @@ version_remember() {
     printf '%s\t%s\t%s\t\t%s\n' "$1" "$2" "$3" "${3:7:12}" >>"$history"
 }
 
+# version_pulled <repo> <digest>: the tags that led to the digest, comma-separated
+version_pulled() {
+  [[ -f $SERVICE_DIR/$VERSION_HISTORY ]] || return 0
+  awk -F'\t' -v r="$1" -v d="$2" '$2 == r && $3 == d && $1 != "" { print $1 }' "$SERVICE_DIR/$VERSION_HISTORY" | paste -sd,
+}
+
 # version_tags <repo> <digest>: the tags pointing to the digest, comma-separated.
 # Answers from the history, which is never brought up to date: it tells what a
 # digest was when it was found. The registry is only asked as long as it did
-# not know a tag. Without any, the tags that led to the digest are the answer.
+# not know a tag.
 version_tags() {
-  local history="$SERVICE_DIR/$VERSION_HISTORY" tags="" found=""
+  local history="$SERVICE_DIR/$VERSION_HISTORY" tags=""
 
   if [[ -f $history ]]; then
     tags=$(awk -F'\t' -v r="$1" -v d="$2" '$2 == r && $3 == d && $4 != "" { print $4; exit }' "$history")
-    found=$(awk -F'\t' -v r="$1" -v d="$2" '$2 == r && $3 == d && $1 != "" { print $1 }' "$history" | paste -sd,)
   fi
 
   if [[ -z $tags ]] && version_registry "$1"; then
@@ -103,7 +108,6 @@ version_tags() {
     fi
   fi
 
-  tags="${tags:-$found}"
   if [[ -z $tags ]]; then
     version_registry "$1" || return
     return 1
