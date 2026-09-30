@@ -5,7 +5,7 @@
 #   <name>_TARGET   the tag that is followed, "*" stands for the highest number
 #   <name>_CURRENT  the digest that is installed
 declare -A version_commands=(
-  [add]="<name> <repo> <target>:Add an image to .version and put it into docker-compose.yml"
+  [add]="<name> <repo> [target]:Add an image to .version and put it into docker-compose.yml, the target may also follow the repo after a colon"
   [info]=":Show the current and the target hash of every image with their tags"
   [search]="<name/repo> <hash/tag>:Show all tags that belong to a hash or tag of an image of .version or of a repo"
   [running]=":Show the hash of the image of every running container with its tags and dates"
@@ -163,9 +163,15 @@ version_borg() {
   sudo -E borg "$@"
 }
 
+# version_add <name> <repo[:target]> [target]: the target may follow the repo
+# after a colon, unless it is the port of a registry
 version_add() {
   local name="${1^^}" repo="$2" target="$3"
 
+  if [[ -z $target && $repo == *:* && ${repo##*:} != */* ]]; then
+    target="${repo##*:}"
+    repo="${repo%:*}"
+  fi
   if [[ -z $name || -z $repo || -z $target ]]; then
     echo "[VERSION] name, repo and target are required"
     exit 1
