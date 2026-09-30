@@ -7,8 +7,8 @@
 declare -A version_commands=(
   [add]="<name> <repo> <target>:Add an image to .version and show its line for docker-compose.yml"
   [info]=":Show the current and the target hash of every image with their tags"
-  [search]="<hash/tag> [name]:Show all tags that belong to a hash or tag, name is required with several images"
-  [running]=":Show the hash of the image of every running container with its tags"
+  [search]="<hash/tag> [name/repo]:Show all tags that belong to a hash or tag of an image of .version or of a repo"
+  [running]=":Show the hash of the image of every running container with its tags and dates"
   [list]=":List the backups of the versions replaced by auto-upgrade and the installed version with their tags"
   ["auto-upgrade"]="[-y]:Upgrade to the digests the target tags point to"
 )
@@ -30,7 +30,7 @@ cmd_version() {
     exit 1
   fi
 
-  if [[ $command != "add" && $command != "running" && ! -s "$SERVICE_DIR/.version" ]]; then
+  if [[ " info list auto-upgrade " == *" $command "* && ! -s "$SERVICE_DIR/.version" ]]; then
     echo "[VERSION] $SERVICE_DIR_NAME has no .version file"
     exit 1
   fi
@@ -85,6 +85,18 @@ version_load() {
   new=$(version_digest "$repo" "$target")
 }
 
+# version_ignore: keeps the history out of git. It changes by commands that
+# only read, and every borg backup holds it anyway.
+version_ignore() {
+  local ignore="$SERVICE_DIR/.gitignore"
+
+  if ! grep -qsxF "$VERSION_HISTORY" "$ignore"; then
+    # a last line without its end would take up the one that is added
+    [[ ! -s $ignore || -z $(tail -c1 "$ignore") ]] || echo >>"$ignore"
+    echo "$VERSION_HISTORY" >>"$ignore"
+  fi
+}
+
 # version_init: gives every image with an empty <name>_CURRENT the digest its
 # target points to and keeps the history out of git. Called by docker_up and
 # docker_pull, a service without a .version file is left alone.
@@ -94,12 +106,7 @@ version_init() {
 
   [[ -s "$SERVICE_DIR/.version" ]] || return 0
   version_check
-
-  if ! grep -qsxF "$VERSION_HISTORY" .gitignore; then
-    # a last line without its end would take up the one that is added
-    [[ ! -s .gitignore || -z $(tail -c1 .gitignore) ]] || echo >>.gitignore
-    echo "$VERSION_HISTORY" >>.gitignore
-  fi
+  version_ignore
 
   for name in $(version_names); do
     var="${name}_CURRENT"
@@ -214,23 +221,42 @@ version_info() {
   fi
 }
 
+# version_time <time>: a time of docker as the date and time of this host
+version_time() {
+  # docker writes the year 1 for a time it does not know, date takes no time for now
+  if [[ -z $1 || $1 == 0001-* ]]; then
+    echo "unknown"
+    return
+  fi
+  date -d "$1" '+%F %H:%M' 2>/dev/null || echo "unknown"
+}
+
 # version_running: the image of every running container. One that was started
 # by a tag has the digest the tag had when it was pulled, which is the one of
 # all architectures and not the one a .version would hold.
+# docker keeps no time of the pull, but the time the image got its name, which
+# is the last pull of it. The container tells since when the image is in use.
+# What is found is added to the history.
 version_running() {
-  local ids id name image identity repo digest
+  local ids id name image identity created pulled repo tag digest
   ids=$(docker compose -p $SERVICE_DIR_NAME ps -q)
 
   if [[ -z $ids ]]; then
     echo "[VERSION] No container of $SERVICE_DIR_NAME is running"
     return 0
   fi
+  version_ignore
 
   for id in $ids; do
-    read -r name image identity < <(docker inspect --format '{{.Name}} {{.Config.Image}} {{.Image}}' "$id")
+    read -r name image identity created < <(docker inspect --format '{{.Name}} {{.Config.Image}} {{.Image}} {{.Created}}' "$id")
+    pulled=$(docker image inspect --format '{{json .Metadata.LastTagTime}}' "$identity" | tr -d '"')
     repo="${image%@*}"
+    tag=""
     # what follows the last colon is a tag, unless it is the port of a registry
-    [[ ${repo##*:} == */* ]] || repo="${repo%:*}"
+    if [[ $repo == *:* && ${repo##*:} != */* ]]; then
+      tag="${repo##*:}"
+      repo="${repo%:*}"
+    fi
     if [[ $image == *@* ]]; then
       digest="${image#*@}"
     else
@@ -239,34 +265,44 @@ version_running() {
       digest="${digest:-$identity}"
     fi
 
+    version_remember "$tag" "$repo" "$digest"
     echo "[VERSION] ${name#/}: $image"
     version_describe running "$repo" "$digest"
+    echo "                pulled: $(version_time "$pulled")"
+    echo "               created: $(version_time "$created")"
   done
 }
 
+# version_search <hash/tag> [name/repo]: what is searched in is an image of
+# .version, given by its name, or else a repo. The only image of a .version
+# needs no name.
 version_search() {
-  local query="$1" name="$2" names var repo digest tags rc=0
+  local query="$1" name="$2" names="" var repo digest tags rc=0
 
   if [[ -z $query ]]; then
     echo "[VERSION] hash or tag is required"
     exit 1
   fi
 
-  names=$(version_names)
-  if [[ -z $name ]]; then
-    if [[ $(wc -l <<<"$names") -gt 1 ]]; then
-      echo "[VERSION] name is required, .version has several images: ${names//$'\n'/, }"
-      exit 1
-    fi
-    name="$names"
-  elif ! grep -qxF "$name" <<<"$names"; then
-    echo "[VERSION] $name is not in .version"
+  if [[ -s "$SERVICE_DIR/.version" ]]; then
+    names=$(version_names)
+  fi
+  if [[ -z $name && $(grep -c . <<<"$names") -ne 1 ]]; then
+    echo "[VERSION] name or repo is required${names:+, .version has several images: ${names//$'\n'/, }}"
     exit 1
   fi
+  name="${name:-$names}"
 
-  var="${name}_REPO" && repo="${!var}"
+  if grep -qxF "${name^^}" <<<"$names"; then
+    var="${name^^}_REPO" && repo="${!var}"
+    name="${name^^}: $repo"
+  else
+    repo="$name"
+  fi
+  version_ignore
+
   if ! digest=$(version_find "$repo" "$query"); then
-    echo "[VERSION] $name: $query not found in $repo"
+    echo "[VERSION] $query not found in $repo"
     exit 1
   fi
 
@@ -277,7 +313,7 @@ version_search() {
     tags="no tags found"
   fi
 
-  echo "[VERSION] $name: $repo"
+  echo "[VERSION] $name"
   echo "          hash: $digest"
   echo "          tags: ${tags//,/, }"
   [[ $rc -eq 0 ]] || exit 1
