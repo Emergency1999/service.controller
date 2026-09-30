@@ -202,15 +202,13 @@ version_auto-upgrade() {
   exit 1
 }
 
-# version_mountable: says whether borg can mount a backup and sets $restore to
-# the restore that fits: restore-diff with FUSE, restore-fresh without
+# version_mountable: sets $restore to the restore that fits: restore-diff
+# with FUSE, restore-fresh without, which is said
 version_mountable() {
+  restore="restore-diff"
   if version_borg debug info 2>/dev/null | grep -q 'fuse: None'; then
     restore="restore-fresh"
-    printf '[VERSION] %-40s no: a restore is fresh\n' "Borg can mount backups"
-  else
-    restore="restore-diff"
-    version_passed "Borg can mount backups"
+    echo "[VERSION] Borg cannot mount backups, a restore is fresh"
   fi
 }
 
