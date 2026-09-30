@@ -64,9 +64,9 @@ subcommand modules:
    — `init`, `backup`, `restore-fresh`, `restore-diff`, `export`, `list`, `prune`, `compact`, `break-lock`,
   plus `autobackup-enable/disable/now`. Each service has its own borg repo at `$BORG_REPO_BASE/<service>`.
 - [git.sh](git.sh) — `git commit <message>` (commits + creates a borg backup).
-- [versions/](versions/versions.sh) — `version add`, `info`, `running`, `search`, `history`, `auto-upgrade`. For
-  services with a `.version` file, see "Image versions" below; `add`, `running` and `search` work
-  without one.
+- [versions/](versions/versions.sh) — `version add`, `info`, `running`, `search`, `history`, `auto-upgrade`, `restore`. For
+  services with a `.version` file, see "Image versions" below; `add`, `running`, `search` and
+  `restore` work without one.
 
 ### Cross-cutting concepts
 
@@ -102,8 +102,9 @@ subcommand modules:
   written in full. `up` and `pull` fill every empty `CURRENT` with the digest its target points to.
   `version auto-upgrade` moves `CURRENT` to the digest the target points to: pull → `down` →
   `backup +upgrade-from-<short hashes>` → write `.version` → `up` → wait until healthy → commit of `.version`, nothing else;
-  if the service does not get healthy, the backup is restored. It needs the borg repository to be
-  reachable. Only the names of backups and commits hold short hashes, the first 12 characters of
+  if the service does not get healthy, the backup is restored by `version restore`: `down` →
+  `restore-diff`, or `restore-fresh` where borg has no FUSE to mount the backup → `up`. It needs
+  the borg repository to be reachable. Only the names of backups and commits hold short hashes, the first 12 characters of
   a digest: borg takes names of up to 255 characters. No backup is deleted: if a name is taken,
   e.g. by the backup of an upgrade that failed, the new one gets a counter (`+upgrade-from-<…>.2`).
 - **Registries** — a client in [versions/registries/](versions/registries/) knows the API of a

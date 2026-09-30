@@ -11,6 +11,7 @@ declare -A version_commands=(
   [running]=":Show the hash of the image of every running container with its tags and dates"
   [history]="[name]:List the backups of the versions replaced by auto-upgrade with their dates and the installed version, of one image or of all"
   ["auto-upgrade"]="[-y]:Upgrade to the digests the target tags point to"
+  [restore]="<backup> [-y/-n]:Stop the service, restore the backup, start it again; -y makes a backup first, -n does not, else it asks"
 )
 
 # backups of replaced versions; borg_prune keeps archives starting with "+"

@@ -56,6 +56,11 @@ version_wait() {
   return 1
 }
 
+# version_passed <condition>: says that a condition of the upgrade is met
+version_passed() {
+  printf '[VERSION] %-40s ok\n' "$1"
+}
+
 # version_unique <name> <archives>: the name for a new backup. If the archives,
 # one per line, hold the name already, a counter is put to its end: the second
 # backup of a name is <name>.2
@@ -68,10 +73,12 @@ version_unique() {
 
 version_auto-upgrade() {
   local name repo target current new short i archives
-  local from="" to="" running=false failure=""
-  local -a names=() digests=()
+  local from="" to="" running=false failure="" restore
+  local -a names=() repos=() targets=() currents=() digests=()
 
+  # every condition that is met is said, the one that is not ends the upgrade
   version_check
+  version_passed ".version fits docker-compose.yml"
 
   for name in $(version_names); do
     if ! version_load "$name"; then
@@ -81,16 +88,17 @@ version_auto-upgrade() {
     [[ $new != "$current" ]] || continue
 
     names+=("$name")
+    repos+=("$repo")
+    targets+=("$target")
+    currents+=("$current")
     digests+=("$new")
     # backups are named by the short hashes, which the history holds as well
     [[ -z $current ]] || version_remember "" "$repo" "$current"
     short="${current:7:12}"
     from+="${from:+_}${short:-none}"
     to+="${to:+_}${new:7:12}"
-    echo "[VERSION] Upgrade $name: $repo:$target"
-    version_describe from "$repo" "$current"
-    version_describe to "$repo" "$new"
   done
+  version_passed "Targets found in the registries"
 
   if [[ ${#names[@]} -eq 0 ]]; then
     echo "[VERSION] $SERVICE_DIR_NAME is up to date"
@@ -107,6 +115,7 @@ version_auto-upgrade() {
     echo "$failure" | sed 's/^/          /'
     exit 1
   fi
+  version_passed "All containers are healthy"
   if [[ -n $(version_containers) ]]; then
     running=true
   fi
@@ -114,6 +123,14 @@ version_auto-upgrade() {
     echo "[VERSION] The borg repository is not reachable, aborting"
     exit 1
   fi
+  version_passed "Borg repository is reachable"
+  version_mountable
+
+  for i in "${!names[@]}"; do
+    echo "[VERSION] Upgrade ${names[i]}: ${repos[i]}:${targets[i]}"
+    version_describe from "${repos[i]}" "${currents[i]}"
+    version_describe to "${repos[i]}" "${digests[i]}"
+  done
   # a backup of an earlier upgrade is kept, the new one gets a name of its own
   backup=$(version_unique "$backup" "$archives")
   commit=$(version_unique "$commit" "$archives")
@@ -176,11 +193,53 @@ version_auto-upgrade() {
   fi
 
   echo "[VERSION] Upgrade failed, restoring '$backup'..."
-  if version_run down && version_run borg restore-diff "$backup" --clean-git && { ! $running || version_run up; }; then
+  if version_restore "$backup" -n; then
     echo "[VERSION] Upgrade of $SERVICE_DIR_NAME was rolled back, $failure"
   else
     echo "[VERSION] Upgrade of $SERVICE_DIR_NAME failed and so did the rollback, restore '$backup' by hand."
     echo "          $failure"
   fi
   exit 1
+}
+
+# version_mountable: says whether borg can mount a backup and sets $restore to
+# the restore that fits: restore-diff with FUSE, restore-fresh without
+version_mountable() {
+  if version_borg debug info 2>/dev/null | grep -q 'fuse: None'; then
+    restore="restore-fresh"
+    printf '[VERSION] %-40s no: a restore is fresh\n' "Borg can mount backups"
+  else
+    restore="restore-diff"
+    version_passed "Borg can mount backups"
+  fi
+}
+
+# version_restore <backup> [-y/-n]: stops the service, restores the backup
+# and starts the service again if it was running. A backup of the state
+# before is made with -y, not made with -n, else it is asked for.
+version_restore() {
+  local name="$1" answer="$2" restore running=false
+
+  if [[ -z $name ]]; then
+    echo "[VERSION] name of the backup is required"
+    exit 1
+  fi
+  if [[ -z $answer ]]; then
+    printf "[VERSION] Make a backup of the current state first?(y/N): "
+    read -r answer
+  fi
+  case "$answer" in
+  -[yY] | [yY][eE][sS] | [yY]) version_run backup latest ;;
+  esac
+
+  version_mountable
+  if [[ -n $(version_containers) ]]; then
+    running=true
+  fi
+  if version_run down && version_run borg "$restore" "$name" --clean-git && { ! $running || version_run up; }; then
+    echo "[VERSION] Restored $SERVICE_DIR_NAME from '$name'"
+  else
+    echo "[VERSION] Restore of $SERVICE_DIR_NAME from '$name' failed"
+    return 1
+  fi
 }
