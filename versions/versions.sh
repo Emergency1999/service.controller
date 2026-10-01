@@ -5,7 +5,7 @@
 #   <name>_TARGET   the tag that is followed, "*" stands for the highest number
 #   <name>_CURRENT  the digest that is installed
 declare -A version_commands=(
-  [add]="<name> <repo> [target]:Add an image to .version and put it into docker-compose.yml, the target may also follow the repo after a colon"
+  [add]="<name> <repo> [target] [hash]:Add an image to .version and put it into docker-compose.yml, the target may also follow the repo after a colon, the hash is what is installed"
   [info]=":Show the current and the target hash of every image with their tags"
   [search]="<name/repo> <hash/tag>:Show all tags that belong to a hash or tag of an image of .version or of a repo"
   [running]=":Show the hash of the image of every running container with its tags and dates"
@@ -168,11 +168,19 @@ version_borg() {
   sudo -E borg "$@"
 }
 
-# version_add <name> <repo[:target]> [target]: the target may follow the repo
-# after a colon, unless it is the port of a registry
+# version_add <name> <repo[:target]> [target] [hash]: the target may follow
+# the repo after a colon, unless it is the port of a registry. The hash, known
+# by its form, is written as what is installed.
 version_add() {
-  local name="${1^^}" repo="$2" target="$3"
+  local name="${1^^}" repo="$2" target="$3" current="$4"
 
+  if [[ -z $current && $target =~ ^(sha256:)?[0-9a-f]{64}$ ]]; then
+    current="$target"
+    target=""
+  fi
+  if [[ -n $current ]]; then
+    current="sha256:${current#sha256:}"
+  fi
   if [[ -z $target && $repo == *:* && ${repo##*:} != */* ]]; then
     target="${repo##*:}"
     repo="${repo%:*}"
@@ -188,7 +196,7 @@ version_add() {
 
   # a last line without its end would take up the first one that is added
   [[ ! -s .version || -z $(tail -c1 .version) ]] || echo >>.version
-  printf '%s_REPO=%s\n%s_TARGET=%s\n%s_CURRENT=\n' "$name" "$repo" "$name" "$target" "$name" >>.version
+  printf '%s_REPO=%s\n%s_TARGET=%s\n%s_CURRENT=%s\n' "$name" "$repo" "$name" "$target" "$name" "$current" >>.version
 
   echo "[VERSION] Added $name to .version"
 
