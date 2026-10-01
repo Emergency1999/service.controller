@@ -248,6 +248,8 @@ borg_restore-diff() {
   # Use --info=progress2 to show only the overall progress percentage
   sudo rsync -ah --info=progress2 --delete "$BASE_DIR/.tmp/$SERVICE_DIR_NAME/mnt/" "$SERVICE_DIR"
   restoreExitCode=$?
+  # rsync copies the owner of the mount root (root) onto the service directory
+  sudo chown "$(id -u):$(id -g)" "$SERVICE_DIR"
 
   echo "[BORG] Unmounting the backup..."
   sudo -E borg umount "$BASE_DIR/.tmp/$SERVICE_DIR_NAME/mnt"
