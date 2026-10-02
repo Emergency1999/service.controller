@@ -124,16 +124,19 @@ borg_controller_autobackup-now() {
   done
 
   if [ ! -z "$BORG_GENERAL_SUCCESS_URL" ]; then
-    echo "[CONTROLLER] $(date) Sending uptime message..."
     local status="up"
     if [[ $failed_services -gt 0 ]]; then
       status="down"
     fi
-    curl -X GET \
+    if curl -fsS -o /dev/null -X GET \
       -G "$BORG_GENERAL_SUCCESS_URL" \
       --data-urlencode "status=$status" \
       --data-urlencode "msg=succeeded=$succeeded_services, failed=$(IFS=,; echo "${pending_services[*]}")" \
-      --data-urlencode "ping=$(($(date +%s) - tstart))"
+      --data-urlencode "ping=$(($(date +%s) - tstart))"; then
+      echo "[CONTROLLER] $(date) Sent uptime message ($status)"
+    else
+      echo "[CONTROLLER] $(date) Failed to send uptime message ($status)"
+    fi
   fi
 
   if [[ $failed_services -gt 0 ]]; then
