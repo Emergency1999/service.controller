@@ -132,7 +132,7 @@ borg_controller_autobackup-now() {
     curl -X GET \
       -G "$BORG_GENERAL_SUCCESS_URL" \
       --data-urlencode "status=$status" \
-      --data-urlencode "msg=succeeded=$succeeded_services, failed=$failed_services" \
+      --data-urlencode "msg=succeeded=$succeeded_services, failed=$(IFS=,; echo "${pending_services[*]}")" \
       --data-urlencode "ping=$(($(date +%s) - tstart))"
   fi
 
