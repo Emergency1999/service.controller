@@ -37,6 +37,7 @@ if [[ ! -f "$BASE_DIR/.env" ]]; then
   echo "BORG_RSH=\"ssh -i \$HOME/.ssh/id_ed25519\"" >>"$BASE_DIR/.env"
   echo "BORG_REPO_BASE=">>"$BASE_DIR/.env"
   echo "BORG_PASSPHRASE=">>"$BASE_DIR/.env"
+  echo "BORG_GENERAL_SUCCESS_URL=">>"$BASE_DIR/.env"
 
   echo " -> adjust the $BASE_DIR_NAME/.env file as needed"
 fi

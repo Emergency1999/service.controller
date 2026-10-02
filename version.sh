@@ -1,3 +1,3 @@
 set -o allexport
-CORE_VERSION="v5.2"
+CORE_VERSION="v6.0"
 set +o allexport

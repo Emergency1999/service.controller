@@ -57,6 +57,7 @@ borg_controller_change-passphrase() {
 borg_controller_commands+=([autobackup-now]=":Create a new backup for all enabled services immediately")
 borg_controller_autobackup-now() {
   echo "[CONTROLLER] Creating a new backup for all enabled services..."
+  local tstart=$(date +%s)
   local service
   local attempt
   local max_attempts=5
@@ -121,6 +122,19 @@ borg_controller_autobackup-now() {
   for service in "${summary_lines[@]}"; do
     echo "- $service"
   done
+
+  if [ ! -z "$BORG_GENERAL_SUCCESS_URL" ]; then
+    echo "[CONTROLLER] $(date) Sending uptime message..."
+    local status="up"
+    if [[ $failed_services -gt 0 ]]; then
+      status="down"
+    fi
+    curl -X GET \
+      -G "$BORG_GENERAL_SUCCESS_URL" \
+      --data-urlencode "status=$status" \
+      --data-urlencode "msg=succeeded=$succeeded_services, failed=$failed_services" \
+      --data-urlencode "ping=$(($(date +%s) - tstart))"
+  fi
 
   if [[ $failed_services -gt 0 ]]; then
     return 1
