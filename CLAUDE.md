@@ -9,6 +9,14 @@ system-wide commands** (package installs, systemctl, firewall changes, reboots, 
 `/etc`, anything that touches another user's files) without **explicit user instruction**. When in
 doubt, ask first. Docker / borg / git operations scoped to a service or to `$BASE_DIR` are fine.
 
+### Working on services
+
+- **Execute only the user's exact instructions**, and only when you are 100% sure what is meant and
+  the setup is as expected. On any deviation — an unclear instruction, an unexpected state, a
+  command that fails or behaves differently — stop and consult the user before doing anything else.
+- **Never read `.env` files.** The user may allow access to specific keys or values; never read the
+  entire file.
+
 ## Local Claude Code settings
 
 [.claude/settings.json](.claude/settings.json) ships with the repo and is shared across all installs.
