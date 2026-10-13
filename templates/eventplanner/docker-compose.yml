@@ -1,0 +1,85 @@
+networks:
+  default:
+  traefik:
+    external: true
+
+services:
+  eventplanner:
+    image: ${EVENTPLANNER_REPO}@${EVENTPLANNER_CURRENT}
+    restart: unless-stopped
+    # ports:
+    #   - 3000:3000
+    environment:
+      PUBLIC_URL: https://${DOMAIN}
+      PUBLIC_CONVEX_URL: https://${DOMAIN_CONVEX}
+      PUBLIC_AUTHENTIK_ISSUER: ${PUBLIC_AUTHENTIK_ISSUER}
+      PUBLIC_AUTHENTIK_APPLICATION_ID: ${PUBLIC_AUTHENTIK_APPLICATION_ID}
+      PUBLIC_AUTHENTIK_ADMIN_GROUP: ${PUBLIC_AUTHENTIK_ADMIN_GROUP}
+      CONVEX_SELF_HOSTED_URL: http://eventplanner-convex:3210
+      CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY}
+      CALDAV_PASSWORD: ${CALDAV_PASSWORD}
+    depends_on:
+      eventplanner-convex:
+        condition: service_healthy
+    networks:
+      - traefik
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=3000"
+
+  eventplanner-convex:
+    image: ${CONVEX_REPO}@${CONVEX_CURRENT}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    # ports:
+    #   - 3210:3210
+    #   - 3211:3211
+    volumes:
+      - ./volumes/convex:/convex/data
+    environment:
+      CONVEX_CLOUD_ORIGIN: https://${DOMAIN_CONVEX}
+      CONVEX_SITE_ORIGIN: https://${DOMAIN_CONVEX_SITE}
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      start_period: 10s
+    networks:
+      - traefik
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-convex.rule=Host(`${DOMAIN_CONVEX}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-convex.entrypoints=websecure"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-convex.service=${COMPOSE_PROJECT_NAME}-convex"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-convex.loadbalancer.server.port=3210"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-convex-site.rule=Host(`${DOMAIN_CONVEX_SITE}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-convex-site.entrypoints=websecure"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-convex-site.service=${COMPOSE_PROJECT_NAME}-convex-site"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-convex-site.loadbalancer.server.port=3211"
+
+  # Optional: remove together with DOMAIN_DASHBOARD
+  eventplanner-dashboard:
+    image: ${CONVEX_DASHBOARD_REPO}@${CONVEX_DASHBOARD_CURRENT}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    # ports:
+    #   - 6791:6791
+    environment:
+      NEXT_PUBLIC_DEPLOYMENT_URL: https://${DOMAIN_CONVEX}
+    depends_on:
+      eventplanner-convex:
+        condition: service_healthy
+    networks:
+      - traefik
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-dashboard.rule=Host(`${DOMAIN_DASHBOARD}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-dashboard.entrypoints=websecure"
+      # - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-dashboard.middlewares=authentik@file"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-dashboard.loadbalancer.server.port=6791"
