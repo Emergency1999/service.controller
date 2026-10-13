@@ -62,7 +62,7 @@ version_controller_info() {
   done
 }
 
-version_controller_commands+=([upgrade]="[-y] [name...]:Upgrade the images of the services given, or of all in .backup; each asks which unless -y")
+version_controller_commands+=([upgrade]="[-y] [name...]:Upgrade the images of the services given, or of all in .backup; each asks which unless -y, which ends with a summary")
 version_controller_upgrade() {
   local service answer="" log
   local -a services summary_lines=()
@@ -80,12 +80,18 @@ version_controller_upgrade() {
     fi
     echo
     echo "[CONTROLLER] ######################################## Upgrading service: $service"
+    if [[ -z $answer ]]; then
+      # asked one by one, the output goes to the terminal as it is
+      "$BASE_DIR/$service/service.sh" version upgrade || true
+      continue
+    fi
     # the last line says how the upgrade ended
-    "$BASE_DIR/$service/service.sh" version upgrade $answer 2>&1 | tee "$log" || true
+    "$BASE_DIR/$service/service.sh" version upgrade -y 2>&1 | tee "$log" || true
     summary_lines+=("$service: $(grep -v '^[[:space:]]*$' "$log" | tail -n1 | sed 's/^\[VERSION\] *//; s/^ *//')")
   done
   rm -f "$log"
 
+  [[ -n $answer ]] || return 0
   echo
   echo "[CONTROLLER] Upgrade summary:"
   for line in "${summary_lines[@]}"; do
