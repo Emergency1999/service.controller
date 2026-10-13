@@ -54,7 +54,10 @@ Two-layer bash dispatch on top of `docker compose` and `borgbackup`:
 The outer `controller.sh` is a thin shim that sources the outer `.env` then
 [controller.sh](controller.sh). Handles operations that span all services:
 `create <name> <template>`, `import <name...>`, `remove <name...>`, `rename <old> <new>`,
-`update`. Also exposes controller-scoped `borg` subcommands via
+`update`. Also exposes `version info [name...]` (one line per service: the images with updates)
+and `version upgrade [-y] [name...]` (`version upgrade` per service) via
+[controller_versions.sh](controller_versions.sh); without names they take every service in
+`$BASE_DIR/.backup`. Also exposes controller-scoped `borg` subcommands via
 [controller_borg.sh](controller_borg.sh) — `borg change-passphrase`, `borg autobackup-now`
 (iterates every service in `$BASE_DIR/.backup` with 5 retry rounds), `borg list-repos`
 (enumerates every repo under `$BORG_REPO_BASE`, flagging orphans), `borg delete-repo <name>`
@@ -72,7 +75,7 @@ subcommand modules:
    — `init`, `backup`, `restore-fresh`, `restore-diff`, `export`, `list`, `prune`, `compact`, `break-lock`,
   plus `autobackup-enable/disable/now`. Each service has its own borg repo at `$BORG_REPO_BASE/<service>`.
 - [git.sh](git.sh) — `git commit <message>` (commits + creates a borg backup).
-- [versions/](versions/versions.sh) — `version add`, `info`, `running`, `search`, `history`, `auto-upgrade`, `restore`. For
+- [versions/](versions/versions.sh) — `version add`, `info`, `running`, `search`, `history`, `upgrade`, `restore`. For
   services with a `.version` file, see "Image versions" below; `add`, `running`, `search` and
   `restore` work without one.
 
@@ -108,7 +111,7 @@ subcommand modules:
   digest) per image, is loaded together with `.env`, and `docker-compose.yml` has to use
   `image: ${<NAME>_REPO}@${<NAME>_CURRENT}`. An empty `.version` counts as none. Digests are always
   written in full. `up` and `pull` fill every empty `CURRENT` with the digest its target points to.
-  `version auto-upgrade` moves `CURRENT` to the digest the target points to: pull → `down` →
+  `version upgrade` (old name `auto-upgrade`) moves `CURRENT` to the digest the target points to, for all images or only the ones named: pull → `down` →
   `backup +upgrade-from-<short hashes>` → write `.version` → `up` → wait until healthy → commit of `.version`, nothing else;
   if the service does not get healthy, the backup is restored by `version restore`: `down` →
   `restore-diff`, or `restore-fresh` where borg has no FUSE to mount the backup → `up`. It needs
@@ -122,7 +125,7 @@ subcommand modules:
   Only the tags of a digest stay unknown without a client.
 - **Version history** — the service's `.version-history.tsv` holds per digest the tag that led to
   it, the tags the registry knew for it and its short hash, by which the backups of
-  `version auto-upgrade` are named. It is the only cache and is never brought up to date, it tells
+  `version upgrade` are named. It is the only cache and is never brought up to date, it tells
   what a digest was when it was found. `up` and `pull` put it into the service's `.gitignore`: it
   changes by commands that only read, and every borg backup holds it anyway.
 - **Wildcard targets** — a `TARGET` may hold `*` in place of a number (`8.*.*`, `8.*.*-rc`). It
@@ -131,7 +134,7 @@ subcommand modules:
   the repo. Without one it is found by counting up from the highest tag of the history, or from 0
   and 1 if there is none; a number that is missing ends the counting.
 - **Protected backups** — `borg prune` skips archives whose name starts with `+`: the backups of
-  `auto-upgrade` and of `commit`. borg 1.x can only
+  `upgrade` and of `commit`. borg 1.x can only
   select archives by a glob, not exclude them, hence the single marker character.
 - **Template generation** — [func_generate.sh](func_generate.sh) `generate <template> <output>`
   expands `${VAR}` references using `envsubst`; used by services that need dynamic config files written
@@ -151,6 +154,8 @@ subcommand modules:
 ./controller.sh borg list-repos            # list all borg repos (incl. orphaned)
 ./controller.sh borg delete-repo <name>    # wipe a borg repo after confirmation
 ./controller.sh update                     # git pull .controller/ + run update.sh
+./controller.sh version info [name...]     # images with updates, of all services in .backup without names
+./controller.sh version upgrade [-y] [name...]  # version upgrade of each, asks per service unless -y
 
 # Run a service (inside e.g. test/)
 ./test/service.sh help

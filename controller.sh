@@ -31,6 +31,7 @@ cmd_help() {
 # FUNCTIONS
 source ./func_help.sh
 source ./controller_borg.sh
+source ./controller_versions.sh
 
 # MAIN
 main() {

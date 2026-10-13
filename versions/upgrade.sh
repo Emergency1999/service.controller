@@ -1,4 +1,4 @@
-# AUTO-UPGRADE
+# UPGRADE
 
 VERSION_TIMEOUT=300 # seconds a service has to get healthy in after an upgrade
 VERSION_SETTLE=10  # seconds a service is left alone before its health is looked at
@@ -71,8 +71,45 @@ version_unique() {
     END { print (n ? b "." (n + 1) : b) }' <<<"$2"
 }
 
-version_auto-upgrade() {
-  local name repo target current new short i archives
+# version_select <answer>: keeps only the images to upgrade. The answer is y,
+# or -y, for all of them or their names, comma separated; else nothing is done
+version_select() {
+  local answer="$1" name i found
+  local -a keep=()
+
+  case "$answer" in
+  -[yY] | [yY][eE][sS] | [yY]) return 0 ;;
+  "" | [nN][oO] | [nN])
+    echo "          exiting"
+    exit 1
+    ;;
+  esac
+
+  IFS=, read -ra answer <<<"${answer^^}"
+  for name in "${answer[@]}"; do
+    name="${name// /}"
+    found=false
+    for i in "${!names[@]}"; do
+      if [[ ${names[i]^^} == "$name" ]]; then
+        keep+=("$i")
+        found=true
+      fi
+    done
+    if ! $found; then
+      echo "[VERSION] $name is not an image to upgrade, exiting"
+      exit 1
+    fi
+  done
+
+  for i in "${!names[@]}"; do
+    if [[ " ${keep[*]} " != *" $i "* ]]; then
+      unset "names[i]" "repos[i]" "targets[i]" "currents[i]" "digests[i]"
+    fi
+  done
+}
+
+version_upgrade() {
+  local name repo target current new short i archives answer="$1"
   local from="" to="" running=false failure="" restore
   local -a names=() repos=() targets=() currents=() digests=()
 
@@ -94,9 +131,6 @@ version_auto-upgrade() {
     digests+=("$new")
     # backups are named by the short hashes, which the history holds as well
     [[ -z $current ]] || version_remember "" "$repo" "$current"
-    short="${current:7:12}"
-    from+="${from:+_}${short:-none}"
-    to+="${to:+_}${new:7:12}"
   done
   version_passed "Targets found in the registries"
 
@@ -104,10 +138,6 @@ version_auto-upgrade() {
     echo "[VERSION] $SERVICE_DIR_NAME is up to date"
     return 0
   fi
-
-  local backup="$VERSION_ARCHIVE$from"
-  local message="upgrade-to-$to"
-  local commit="+commit: $message"
 
   failure=$(version_unhealthy)
   if [[ -n $failure ]]; then
@@ -131,21 +161,22 @@ version_auto-upgrade() {
     version_describe from "${repos[i]}" "${currents[i]}"
     version_describe to "${repos[i]}" "${digests[i]}"
   done
-  # a backup of an earlier upgrade is kept, the new one gets a name of its own
-  backup=$(version_unique "$backup" "$archives")
-  commit=$(version_unique "$commit" "$archives")
 
-  if [[ $1 != "-y" ]]; then
-    printf "[VERSION] Proceed?(y/N): "
-    read -r
-    case "$REPLY" in
-    [yY][eE][sS] | [yY]) ;;
-    *)
-      echo "          exiting"
-      exit 1
-      ;;
-    esac
+  if [[ -z $answer ]]; then
+    printf "[VERSION] Proceed?(y/N or names, comma separated): "
+    read -r answer
   fi
+  version_select "$answer"
+
+  for i in "${!names[@]}"; do
+    short="${currents[i]:7:12}"
+    from+="${from:+_}${short:-none}"
+    to+="${to:+_}${digests[i]:7:12}"
+  done
+  # a backup of an earlier upgrade is kept, the new one gets a name of its own
+  local backup message="upgrade-to-$to" commit
+  backup=$(version_unique "$VERSION_ARCHIVE$from" "$archives")
+  commit=$(version_unique "+commit: $message" "$archives")
 
   echo "[VERSION] Pulling the new images..."
   for i in "${!names[@]}"; do

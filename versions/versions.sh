@@ -9,8 +9,8 @@ declare -A version_commands=(
   [info]=":Show the current and the target hash of every image with their tags"
   [search]="<name/repo> <hash/tag>:Show all tags that belong to a hash or tag of an image of .version or of a repo"
   [running]=":Show the hash of the image of every running container with its tags and dates"
-  [history]="[name]:List the backups of the versions replaced by auto-upgrade with their dates and the installed version, of one image or of all"
-  ["auto-upgrade"]="[-y]:Upgrade to the digests the target tags point to"
+  [history]="[name]:List the backups of the versions replaced by upgrade with their dates and the installed version, of one image or of all"
+  [upgrade]="[-y/names]:Upgrade to the digests the target tags point to, all images with -y or those named, comma separated, else it asks"
   [restore]="<backup> [-y/-n]:Stop the service, restore the backup, start it again; -y makes a backup first, -n does not, else it asks"
 )
 
@@ -21,6 +21,8 @@ VERSION_ARCHIVE="+upgrade-from-"
 commands+=([version]=":Manage image versions")
 cmd_version() {
   local command="$1"
+  # auto-upgrade is the old name of upgrade
+  [[ $command != "auto-upgrade" ]] || command="upgrade"
 
   if [[ ! " ${!version_commands[@]} " =~ " $command " ]]; then
     print_help "version " "version_commands"
@@ -31,7 +33,7 @@ cmd_version() {
     exit 1
   fi
 
-  if [[ " info history auto-upgrade " == *" $command "* && ! -s "$SERVICE_DIR/.version" ]]; then
+  if [[ " info history upgrade " == *" $command "* && ! -s "$SERVICE_DIR/.version" ]]; then
     echo "[VERSION] $SERVICE_DIR_NAME has no .version file"
     exit 1
   fi
@@ -361,7 +363,7 @@ version_history() {
     exit 1
   fi
 
-  echo "[VERSION] Versions replaced by auto-upgrade:"
+  echo "[VERSION] Versions replaced by upgrade:"
   archives=$(version_borg list --glob-archives "$VERSION_ARCHIVE*" --format '{archive}{TAB}{time:%Y-%m-%d %H:%M}{NL}')
 
   while IFS=$'\t' read -r archive time; do
