@@ -14,8 +14,9 @@ set +o allexport
 
 # HELPERS
 
+# single-quoted: .env is sourced by bash, the key holds a "|"
 set_env_value() {
-  local key="$1" value="$2"
+  local key="$1" value="'$2'"
   awk -v k="$key" -v v="$value" '
     index($0, k "=") == 1 { print k "=" v; done = 1; next }
     { print }
@@ -56,6 +57,7 @@ cmd_authentik() {
   echo "[EVENTPLANNER]                  https://$DOMAIN/auth/silent-callback"
   echo "[EVENTPLANNER]   Scopes:        openid, profile, email, offline_access, groups"
   echo "[EVENTPLANNER]   Admin group:   $PUBLIC_AUTHENTIK_ADMIN_GROUP"
+  echo "[EVENTPLANNER]   Signing key:   required (e.g. authentik Self-signed Certificate) - Convex needs RS256"
 }
 
 # ATTACHMENTS
