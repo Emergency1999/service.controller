@@ -55,7 +55,7 @@ The outer `controller.sh` is a thin shim that sources the outer `.env` then
 [controller.sh](controller.sh). Handles operations that span all services:
 `create <name> <template>`, `import <name...>`, `remove <name...>`, `rename <old> <new>`,
 `update`. Also exposes `version info [name...]` (one line per service: the images with updates)
-and `version upgrade [-y] [name...]` (`version upgrade` per service) via
+and `version upgrade [-y] [--ignore-health] [name...]` (`version upgrade` per service) via
 [controller_versions.sh](controller_versions.sh); without names they take every service in
 `$BASE_DIR/.backup`. Also exposes controller-scoped `borg` subcommands via
 [controller_borg.sh](controller_borg.sh) — `borg change-passphrase`, `borg autobackup-now`
@@ -113,6 +113,7 @@ subcommand modules:
   written in full. `up` and `pull` fill every empty `CURRENT` with the digest its target points to.
   `version upgrade` (old name `auto-upgrade`) moves `CURRENT` to the digest the target points to, for all images or only the ones named: pull → `down` →
   `backup +upgrade-from-<short hashes>` → write `.version` → `up` → wait until healthy → commit of `.version`, nothing else;
+  `--ignore-health` skips the health check before the upgrade and the wait after it;
   if the service does not get healthy, the backup is restored by `version restore`: `down` →
   `restore-diff`, or `restore-fresh` where borg has no FUSE to mount the backup → `up`. It needs
   the borg repository to be reachable. Only the names of backups and commits hold short hashes, the first 12 characters of
@@ -155,7 +156,7 @@ subcommand modules:
 ./controller.sh borg delete-repo <name>    # wipe a borg repo after confirmation
 ./controller.sh update                     # git pull .controller/ + run update.sh
 ./controller.sh version info [name...]     # images with updates, of all services in .backup without names
-./controller.sh version upgrade [-y] [name...]  # version upgrade of each, asks per service unless -y
+./controller.sh version upgrade [-y] [--ignore-health] [name...]  # version upgrade of each, asks per service unless -y
 
 # Run a service (inside e.g. test/)
 ./test/service.sh help

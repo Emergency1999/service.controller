@@ -109,9 +109,18 @@ version_select() {
 }
 
 version_upgrade() {
-  local name repo target current new short i archives answer="$1"
+  local name repo target current new short i archives answer="" health=true
   local from="" to="" running=false failure="" restore
   local -a names=() repos=() targets=() currents=() digests=()
+
+  # --ignore-health skips the health check before and after the upgrade
+  for i in "$@"; do
+    if [[ $i == "--ignore-health" ]]; then
+      health=false
+    else
+      answer="$i"
+    fi
+  done
 
   # every condition that is met is said, the one that is not ends the upgrade
   version_check
@@ -139,13 +148,15 @@ version_upgrade() {
     return 0
   fi
 
-  failure=$(version_unhealthy)
-  if [[ -n $failure ]]; then
-    echo "[VERSION] $SERVICE_DIR_NAME is not healthy, aborting:"
-    echo "$failure" | sed 's/^/          /'
-    exit 1
+  if $health; then
+    failure=$(version_unhealthy)
+    if [[ -n $failure ]]; then
+      echo "[VERSION] $SERVICE_DIR_NAME is not healthy, aborting:"
+      echo "$failure" | sed 's/^/          /'
+      exit 1
+    fi
+    version_passed "All containers are healthy"
   fi
-  version_passed "All containers are healthy"
   if [[ -n $(version_containers) ]]; then
     running=true
   fi
@@ -204,7 +215,7 @@ version_upgrade() {
 
   if ! version_run up; then
     failure="it did not start"
-  else
+  elif $health; then
     echo "[VERSION] Waiting up to $VERSION_TIMEOUT seconds for $SERVICE_DIR_NAME to get healthy..."
     failure=$(version_wait) || failure="it did not get healthy:"$'\n'"$failure"
   fi
