@@ -62,7 +62,7 @@ version_controller_info() {
   done
 }
 
-version_controller_commands+=([upgrade]="[-y] [--ignore-health] [name...]:Upgrade the images of the services given, or of all in .backup; each asks which unless -y, which ends with a summary; --ignore-health skips the health checks")
+version_controller_commands+=([upgrade]="[-y] [--ignore-health] [name...]:Upgrade the images of the services given, or of all in .backup; each asks which unless -y, which ends with a summary; --ignore-health only warns when one is not healthy")
 version_controller_upgrade() {
   local service answer="" health="" log
   local -a services summary_lines=()

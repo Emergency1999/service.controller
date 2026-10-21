@@ -10,7 +10,7 @@ declare -A version_commands=(
   [search]="<name/repo> <hash/tag>:Show all tags that belong to a hash or tag of an image of .version or of a repo"
   [running]=":Show the hash of the image of every running container with its tags and dates"
   [history]="[name]:List the backups of the versions replaced by upgrade with their dates and the installed version, of one image or of all"
-  [upgrade]="[-y/names] [--ignore-health]:Upgrade to the digests the target tags point to, all images with -y or those named, comma separated, else it asks; --ignore-health skips the health checks before and after"
+  [upgrade]="[-y/names] [--ignore-health]:Upgrade to the digests the target tags point to, all images with -y or those named, comma separated, else it asks; --ignore-health only warns when it is not healthy, Ctrl+C skips the wait"
   [restore]="<backup> [-y/-n]:Stop the service, restore the backup, start it again; -y makes a backup first, -n does not, else it asks"
 )
 

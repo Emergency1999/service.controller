@@ -113,7 +113,8 @@ version_upgrade() {
   local from="" to="" running=false failure="" restore
   local -a names=() repos=() targets=() currents=() digests=()
 
-  # --ignore-health skips the health check before and after the upgrade
+  # --ignore-health only warns when the service is not healthy, before and
+  # after the upgrade, and Ctrl+C ends the wait for it
   for i in "$@"; do
     if [[ $i == "--ignore-health" ]]; then
       health=false
@@ -148,14 +149,17 @@ version_upgrade() {
     return 0
   fi
 
-  if $health; then
-    failure=$(version_unhealthy)
-    if [[ -n $failure ]]; then
-      echo "[VERSION] $SERVICE_DIR_NAME is not healthy, aborting:"
-      echo "$failure" | sed 's/^/          /'
-      exit 1
-    fi
+  failure=$(version_unhealthy)
+  if [[ -z $failure ]]; then
     version_passed "All containers are healthy"
+  elif $health; then
+    echo "[VERSION] $SERVICE_DIR_NAME is not healthy, aborting:"
+    echo "$failure" | sed 's/^/          /'
+    exit 1
+  else
+    echo "[VERSION] $SERVICE_DIR_NAME is not healthy (ignored):"
+    echo "$failure" | sed 's/^/          /'
+    failure=""
   fi
   if [[ -n $(version_containers) ]]; then
     running=true
@@ -218,6 +222,19 @@ version_upgrade() {
   elif $health; then
     echo "[VERSION] Waiting up to $VERSION_TIMEOUT seconds for $SERVICE_DIR_NAME to get healthy..."
     failure=$(version_wait) || failure="it did not get healthy:"$'\n'"$failure"
+  else
+    echo "[VERSION] Waiting up to $VERSION_TIMEOUT seconds for $SERVICE_DIR_NAME to get healthy, Ctrl+C skips..."
+    local interrupted=false
+    trap 'interrupted=true' INT
+    failure=$(version_wait) || failure="${failure:-it could not be checked}"
+    trap - INT
+    if $interrupted; then
+      echo "[VERSION] Health check skipped (ignored)"
+    elif [[ -n $failure ]]; then
+      echo "[VERSION] $SERVICE_DIR_NAME did not get healthy (ignored):"
+      echo "$failure" | sed 's/^/          /'
+    fi
+    failure=""
   fi
 
   if [[ -z $failure ]]; then

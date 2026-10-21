@@ -113,7 +113,7 @@ subcommand modules:
   written in full. `up` and `pull` fill every empty `CURRENT` with the digest its target points to.
   `version upgrade` (old name `auto-upgrade`) moves `CURRENT` to the digest the target points to, for all images or only the ones named: pull → `down` →
   `backup +upgrade-from-<short hashes>` → write `.version` → `up` → wait until healthy → commit of `.version`, nothing else;
-  `--ignore-health` skips the health check before the upgrade and the wait after it;
+  `--ignore-health` only warns "(ignored)" when the service is not healthy before or after, Ctrl+C skips the wait;
   if the service does not get healthy, the backup is restored by `version restore`: `down` →
   `restore-diff`, or `restore-fresh` where borg has no FUSE to mount the backup → `up`. It needs
   the borg repository to be reachable. Only the names of backups and commits hold short hashes, the first 12 characters of
