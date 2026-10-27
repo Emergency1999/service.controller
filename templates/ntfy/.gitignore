@@ -1,0 +1,4 @@
+volumes
+.version-history.tsv
+auth.env.bak
+__pycache__/

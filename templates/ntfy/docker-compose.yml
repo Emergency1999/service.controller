@@ -1,0 +1,59 @@
+networks:
+  default:
+  traefik:
+    external: true
+
+services:
+  ntfy:
+    image: ${NTFY_REPO}@${NTFY_CURRENT}
+    restart: unless-stopped
+    init: true
+    command:
+      - serve
+    # ports:
+    #   - 80:80 # web app + API (published through traefik instead)
+    env_file:
+      - auth.env # declarative accounts, see SETUP.md
+    volumes:
+      - ./volumes/cache:/var/cache/ntfy # cache.db, webpush.db, attachments
+      - ./volumes/lib:/var/lib/ntfy     # user.db (accounts + ACL)
+    environment:
+      TZ: ${TIME_ZONE}
+      NTFY_BASE_URL: https://${DOMAIN}
+      NTFY_LISTEN_HTTP: ":80"
+      NTFY_BEHIND_PROXY: "true" # required behind traefik, else every visitor is rate limited as one
+
+      #* message cache
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_CACHE_DURATION: 12h
+
+      #* auth — private instance: no topic is readable or writable without an account
+      NTFY_AUTH_FILE: /var/lib/ntfy/user.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_ENABLE_LOGIN: "true"
+      NTFY_ENABLE_SIGNUP: "false"
+
+      #* attachments
+      NTFY_ATTACHMENT_CACHE_DIR: /var/cache/ntfy/attachments
+      NTFY_ATTACHMENT_TOTAL_SIZE_LIMIT: 5G
+      NTFY_ATTACHMENT_FILE_SIZE_LIMIT: 15M
+      NTFY_ATTACHMENT_EXPIRY_DURATION: 3h
+
+      #* web push — background notifications in the browser
+      NTFY_WEB_PUSH_FILE: /var/cache/ntfy/webpush.db
+      NTFY_WEB_PUSH_PUBLIC_KEY: ${NTFY_WEB_PUSH_PUBLIC_KEY}
+      NTFY_WEB_PUSH_PRIVATE_KEY: ${NTFY_WEB_PUSH_PRIVATE_KEY}
+      NTFY_WEB_PUSH_EMAIL_ADDRESS: ${NTFY_WEB_PUSH_EMAIL_ADDRESS}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:80/v1/health -O - | grep -Eo '\"healthy\"\\s*:\\s*true' || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - traefik # add to traefik network
+      - default # add to default (stack internal) network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure"
