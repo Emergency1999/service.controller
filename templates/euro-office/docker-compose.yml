@@ -36,6 +36,15 @@ services:
 
       - TZ=${TIME_ZONE}
 
+      # --- File size limits (default 100 MB, unzipped OOXML 50/300 MB) ----
+      # MAX_FILE_SIZE and NGINX_CLIENT_MAX_BODY_SIZE are read by the
+      # entrypoint. maxDownloadBytes and inputLimits have no variable of their
+      # own; NODE_CONFIG is merged over the config files by node-config.
+      # inputLimits is an array and replaced as a whole, so all four entries.
+      - MAX_FILE_SIZE=1073741824
+      - NGINX_CLIENT_MAX_BODY_SIZE=1g
+      - 'NODE_CONFIG={"FileConverter":{"converter":{"maxDownloadBytes":1073741824,"inputLimits":[{"type":"docx;dotx;docm;dotm","zip":{"uncompressed":"1GB","template":"*.xml"}},{"type":"xlsx;xltx;xlsm;xltm","zip":{"uncompressed":"1GB","template":"*.xml"}},{"type":"pptx;ppsx;potx;pptm;ppsm;potm","zip":{"uncompressed":"1GB","template":"*.xml"}},{"type":"vsdx;vstx;vssx;vsdm;vstm;vssm","zip":{"uncompressed":"1GB","template":"*.xml"}}]}}}'
+
     volumes:
       # Runtime state, including .private/ (WOPI keypair, secure-link secret,
       # and a generated JWT secret when none is passed in). Upstream explicitly
