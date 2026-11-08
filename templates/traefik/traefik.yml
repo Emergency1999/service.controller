@@ -5,9 +5,23 @@ global:
 #   level: INFO # [DEBUG, INFO, WARNING, ERROR, CRITICAL]
 #   format: common # [common, json, logfmt]
 #   filePath: /log/traefik.log
-# accessLog:
-#   format: common # [common, json, logfmt]
-#   filePath: /log/access.log
+
+# access log to stdout, read by crowdsec through the docker socket (parser crowdsecurity/traefik)
+accessLog:
+  format: json
+  fields:
+    headers:
+      names:
+        User-Agent: keep
+
+# CrowdSec bouncer plugin, the middleware is traefik/crowdsec.yml; without the plugin every site
+# would run unprotected, so traefik refuses to start when the download fails (needs internet at start)
+experimental:
+  abortOnPluginFailure: true
+  plugins:
+    bouncer:
+      moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      version: v1.8.1
 
 api:
   dashboard: true
@@ -25,6 +39,8 @@ entryPoints:
   websecure:
     address: :443
     http: # set default tls settings
+      middlewares:
+        - crowdsec@file # every https router passes the CrowdSec bouncer
       tls:
         certResolver: staging # change to production after verifying your configuration
         domains:

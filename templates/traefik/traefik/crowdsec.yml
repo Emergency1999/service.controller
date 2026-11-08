@@ -1,0 +1,15 @@
+# CrowdSec bouncer middleware, applied to every https router by entryPoints.websecure.http.middlewares
+# in traefik.yml. The LAPI is the crowdsec container of this stack.
+http:
+  middlewares:
+    crowdsec:
+      plugin:
+        bouncer:
+          enabled: true
+          crowdsecMode: stream # decisions pulled every updateIntervalSeconds
+          crowdsecLapiScheme: http
+          crowdsecLapiHost: crowdsec:8080
+          crowdsecLapiKey: '{{ env "CROWDSEC_BOUNCER_KEY" }}'
+          updateIntervalSeconds: 60
+          updateMaxFailure: -1 # fail-open: LAPI unreachable keeps the last decisions and lets traffic pass
+          remediationStatusCode: 403

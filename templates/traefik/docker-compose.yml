@@ -1,10 +1,11 @@
 networks:
+  default:
   traefik:
     external: true
 
 services:
   traefik:
-    image: traefik:${TRAEFIK_VERSION}
+    image: ${TR_REPO}@${TR_CURRENT}
     ports:
       - 80:80
       - 443:443
@@ -21,7 +22,42 @@ services:
 
     environment:
       HETZNER_API_TOKEN: "${HETZNER_DNS_API_TOKEN}"
+      CROWDSEC_BOUNCER_KEY: "${CROWDSEC_BOUNCER_KEY}" # read by traefik/crowdsec.yml
+
+    # crowdsec reads the access log from stdout (docker acquisition by these labels)
+    labels:
+      - "crowdsec.enable=true"
+      - "crowdsec.labels.type=traefik"
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
 
     networks:
       - traefik
+      - default
     restart: unless-stopped
+
+  # CrowdSec agent and LAPI: parses traefik's access log, traefik's plugin pulls the decisions
+  crowdsec:
+    image: ${CS_REPO}@${CS_CURRENT}
+    restart: unless-stopped
+    # ports:
+    #   - 8080:8080 # LAPI, reached by traefik as http://crowdsec:8080
+    environment:
+      COLLECTIONS: crowdsecurity/traefik # installed at every start
+      BOUNCER_KEY_traefik: ${CROWDSEC_BOUNCER_KEY} # registers the bouncer "traefik" with this key
+      ENROLL_KEY: ${CROWDSEC_ENROLL_KEY}
+      ENROLL_INSTANCE_NAME: ${CROWDSEC_ENROLL_INSTANCE_NAME}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # docker acquisition
+      - ./acquis.d:/etc/crowdsec/acquis.d # not read-only: the first start copies the defaults into /etc/crowdsec
+      - ./volumes/crowdsec/config:/etc/crowdsec
+      - ./volumes/crowdsec/data:/var/lib/crowdsec/data
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

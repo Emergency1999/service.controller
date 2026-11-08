@@ -1,0 +1,4 @@
+# Containers with the labels crowdsec.enable=true and crowdsec.labels.type=<type> (traefik sets type=traefik)
+source: docker
+use_container_labels: true
+docker_host: unix:///var/run/docker.sock

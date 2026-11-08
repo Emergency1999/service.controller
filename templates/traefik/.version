@@ -1,0 +1,6 @@
+TR_REPO=traefik
+TR_TARGET=v3
+TR_CURRENT=
+CS_REPO=crowdsecurity/crowdsec
+CS_TARGET=v1.*.*
+CS_CURRENT=
