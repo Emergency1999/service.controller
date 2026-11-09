@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-09 — bouncer self-response whitelist
+- parsers/s02-enrich/zz-traefik-bouncer-self-403.yaml: new, whitelist parser that drops access-log lines with `DownstreamStatus` 403 and `OriginStatus` 0 (answered by traefik itself, i.e. the bouncer), so `LePresidente/http-generic-403-bf` no longer re-bans a banned client that retries
+- docker-compose.yml: crowdsec mounts that file read-only to `/etc/crowdsec/parsers/s02-enrich/`
+- note: after the sync, `up` recreates only crowdsec; check with `cscli metrics show whitelists`
+
 ## 2026-11-09 — CrowdSec bouncer
 - docker-compose.yml: new container `crowdsec` (image `${CS_REPO}@${CS_CURRENT}`, collection `crowdsecurity/traefik`, environment `BOUNCER_KEY_traefik`, `ENROLL_KEY`, `ENROLL_INSTANCE_NAME` from the `CROWDSEC_*` values in `.env`, docker socket read-only, `./acquis.d` mounted to `/etc/crowdsec/acquis.d`, volumes `./volumes/crowdsec/config` and `./volumes/crowdsec/data`, healthcheck `cscli lapi status`), on the `default` network only
 - docker-compose.yml: top-level network `default:` added, traefik joins `default` as well (reaches the LAPI as `http://crowdsec:8080`)

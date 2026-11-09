@@ -1,0 +1,11 @@
+# Lines the CrowdSec bouncer answered itself (403 without a service behind it, OriginStatus 0) are
+# dropped before the scenarios: otherwise LePresidente/http-generic-403-bf bans a banned client again
+# as long as it retries. 403s from the services (OriginStatus 403) still count. Also drops 403s that
+# other traefik middlewares answer themselves (forwardAuth, ipAllowList).
+name: local/traefik-bouncer-self-403
+description: "Ignore 403 responses answered by traefik itself (CrowdSec bouncer), not by a service"
+filter: "evt.Parsed.program startsWith 'traefik' && evt.Unmarshaled.traefik != nil"
+whitelist:
+  reason: "403 answered by traefik itself (crowdsec bouncer)"
+  expression:
+    - "evt.Meta.http_status == '403' && (evt.Unmarshaled.traefik.OriginStatus ?? 0) == 0"
