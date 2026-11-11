@@ -43,7 +43,11 @@ the cloned controller repo at `.controller/` (this directory — remote
 
 Code changes that ship to all installs go inside `.controller/`. The outer `controller.sh` and
 `.env` are install-local and aren't versioned by the controller repo. Each service folder is its own
-small git repo.
+small git repo. It has no remote and is never pushed: it is the change log of the service, and
+everything in it is committed on purpose, `.env` and plaintext secrets included, so past changes of
+secrets stay visible. A secret committed in a service repo is not a finding, and secret files are
+not gitignored there (`.gitignore` holds only `volumes` and `.version-history.tsv`). This does not
+hold for `.controller/` and its templates, which are pushed: no real secrets there.
 
 ## Architecture
 
