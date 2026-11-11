@@ -54,6 +54,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro # docker acquisition
       - ./acquis.d:/etc/crowdsec/acquis.d # not read-only: the first start copies the defaults into /etc/crowdsec
       - ./parsers/s02-enrich/zz-traefik-bouncer-self-403.yaml:/etc/crowdsec/parsers/s02-enrich/zz-traefik-bouncer-self-403.yaml:ro
+      - ./parsers/s02-enrich/zz-zammad-attachments.yaml:/etc/crowdsec/parsers/s02-enrich/zz-zammad-attachments.yaml:ro
+      - ./parsers/s02-enrich/zz-onlyoffice-assets.yaml:/etc/crowdsec/parsers/s02-enrich/zz-onlyoffice-assets.yaml:ro
+      - ./parsers/s02-enrich/zz-nextcloud-webdav.yaml:/etc/crowdsec/parsers/s02-enrich/zz-nextcloud-webdav.yaml:ro
       - ./volumes/crowdsec/config:/etc/crowdsec
       - ./volumes/crowdsec/data:/var/lib/crowdsec/data
     healthcheck:

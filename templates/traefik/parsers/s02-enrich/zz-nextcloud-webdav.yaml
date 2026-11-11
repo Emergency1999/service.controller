@@ -1,0 +1,13 @@
+# The Nextcloud desktop and mobile clients sync through WebDAV under /remote.php/dav/ (and the
+# legacy /remote.php/webdav/): a sync of a folder with many files sends dozens of GET, PROPFIND
+# and PUT requests within seconds, paths without a static file extension, and
+# crowdsecurity/http-crawl-non_statics bans the user (alko, 2026-11-11). Successful WebDAV
+# requests are dropped before the scenarios; errors on that path (401 of failed logins, 404 of
+# probing) still count.
+name: local/nextcloud-webdav
+description: "Ignore successful Nextcloud WebDAV requests (a client sync sends them in a burst)"
+filter: "evt.Parsed.program startsWith 'traefik' && (evt.Meta.http_path startsWith '/remote.php/dav/' || evt.Meta.http_path startsWith '/remote.php/webdav/')"
+whitelist:
+  reason: "nextcloud webdav sync"
+  expression:
+    - "int(evt.Meta.http_status) < 400"

@@ -1,0 +1,12 @@
+# The OnlyOffice document server serves the editor's fonts, dictionaries and plugin lists under
+# a versioned prefix such as /9.3.7-c36479daf4ee63b56f575ee7e5e04e1f/fonts/033, paths without a
+# file extension. Opening a document loads dozens of them in a burst and
+# crowdsecurity/http-crawl-non_statics counts them as pages. Successful requests under that
+# prefix are dropped before the scenarios; errors on it still count.
+name: local/onlyoffice-assets
+description: "Ignore successful requests to OnlyOffice's versioned editor assets (loaded in a burst)"
+filter: 'evt.Parsed.program startsWith "traefik" && evt.Meta.http_path matches "^/[0-9]+\\.[0-9]+\\.[0-9]+-[0-9a-f]{32}/"'
+whitelist:
+  reason: "onlyoffice editor asset"
+  expression:
+    - "int(evt.Meta.http_status) < 400"

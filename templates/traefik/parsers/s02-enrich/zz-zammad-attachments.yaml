@@ -1,0 +1,12 @@
+# A Zammad ticket view loads every inline attachment of the ticket in one burst, dozens of
+# requests to /api/v1/ticket_attachment/... within seconds. crowdsecurity/http-crawl-non_statics
+# counts them as pages (no static file extension) and bans the user, and with a campus NAT
+# everyone behind it. Successful attachment requests are dropped before the scenarios; 401 and
+# 404 on that path still count, so probing of attachment ids is still caught.
+name: local/zammad-attachments
+description: "Ignore successful Zammad inline attachment requests (a ticket view loads them in a burst)"
+filter: "evt.Parsed.program startsWith 'traefik' && evt.Meta.http_path startsWith '/api/v1/ticket_attachment/'"
+whitelist:
+  reason: "zammad ticket attachment"
+  expression:
+    - "int(evt.Meta.http_status) < 400"

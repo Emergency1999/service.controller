@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-11 — Nextcloud WebDAV whitelist
+- parsers/s02-enrich/zz-nextcloud-webdav.yaml: new, whitelist parser that drops successful (status < 400) requests under `/remote.php/dav/` and `/remote.php/webdav/`: a Nextcloud desktop client sync sends them in one burst and `crowdsecurity/http-crawl-non_statics` banned the user (alko, 2026-11-11)
+- docker-compose.yml: crowdsec mounts that file read-only to `/etc/crowdsec/parsers/s02-enrich/`
+
+## 2026-11-09 — OnlyOffice asset whitelist
+- parsers/s02-enrich/zz-onlyoffice-assets.yaml: new, whitelist parser that drops successful (status < 400) requests under OnlyOffice's versioned asset prefix (`/<version>-<32 hex>/`, fonts, dictionaries, plugins.json): opening a document loads them in one burst and `crowdsecurity/http-crawl-non_statics` banned the user (akadis, 2026-11-09)
+- docker-compose.yml: crowdsec mounts that file read-only to `/etc/crowdsec/parsers/s02-enrich/`
+
+## 2026-11-09 — Zammad attachment whitelist
+- parsers/s02-enrich/zz-zammad-attachments.yaml: new, whitelist parser that drops successful (status < 400) requests to `/api/v1/ticket_attachment/`: a Zammad ticket view loads its inline attachments in one burst and `crowdsecurity/http-crawl-non_statics` banned the user (akadis, 2026-11-09)
+- docker-compose.yml: crowdsec mounts that file read-only to `/etc/crowdsec/parsers/s02-enrich/`
+
 ## 2026-11-09 — bouncer self-response whitelist
 - parsers/s02-enrich/zz-traefik-bouncer-self-403.yaml: new, whitelist parser that drops access-log lines with `DownstreamStatus` 403 and `OriginStatus` 0 (answered by traefik itself, i.e. the bouncer), so `LePresidente/http-generic-403-bf` no longer re-bans a banned client that retries
 - docker-compose.yml: crowdsec mounts that file read-only to `/etc/crowdsec/parsers/s02-enrich/`
