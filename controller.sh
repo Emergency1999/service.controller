@@ -456,14 +456,57 @@ cmd_rename() {
   echo "[CONTROLLER] Rename complete: '$old_name' -> '$new_name'"
 }
 
-commands+=([update]=":Update the controller to the latest version")
+commands+=([update]="[auto-enable|auto-disable]:Update the controller to the latest version, or switch the daily auto-update after the nightly autobackup on or off")
 cmd_update() {
+  case "$1" in
+  auto-enable)
+    touch "$BASE_DIR/.autoupdate"
+    echo "[CONTROLLER] Auto-update enabled: runs after the nightly autobackup, log in $BASE_DIR/.update.log"
+    return 0
+    ;;
+  auto-disable)
+    rm -f "$BASE_DIR/.autoupdate"
+    echo "[CONTROLLER] Auto-update disabled"
+    return 0
+    ;;
+  "") ;;
+  *)
+    echo "Unknown argument: $1 (expected auto-enable or auto-disable)"
+    exit 1
+    ;;
+  esac
   echo "Updating controller..."
   cd $CORE_DIR
   git pull --rebase origin main
   echo "Controller updated to latest version"
   source update.sh
   echo "Controller update process completed"
+}
+
+# Runs `update` in its own process when $BASE_DIR/.autoupdate exists; called after the nightly
+# autobackup. No terminal: a prompt reads EOF and fails the update, which is then reported.
+controller_autoupdate() {
+  [[ -e "$BASE_DIR/.autoupdate" ]] || return 0
+  echo
+  echo "[CONTROLLER] Auto-update, log in $BASE_DIR/.update.log"
+  if "$BASE_DIR/controller.sh" update </dev/null >"$BASE_DIR/.update.log" 2>&1; then
+    echo "[CONTROLLER] Auto-update finished"
+    return 0
+  fi
+  echo "[CONTROLLER] Auto-update failed, see $BASE_DIR/.update.log"
+  if [[ -n "$NTFY_URL" ]]; then
+    local -a auth=()
+    [[ -n "$NTFY_TOKEN" ]] && auth=(-H "Authorization: Bearer $NTFY_TOKEN")
+    if curl -fsS -o /dev/null "${auth[@]}" \
+      -H "Title: Controller auto-update failed on $(hostname)" \
+      -H "Tags: warning" \
+      --data-binary "$(tail -n 20 "$BASE_DIR/.update.log")" \
+      "$NTFY_URL"; then
+      echo "[CONTROLLER] Sent ntfy message"
+    else
+      echo "[CONTROLLER] Failed to send ntfy message"
+    fi
+  fi
 }
 
 main "$@"

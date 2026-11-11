@@ -58,7 +58,7 @@ Two-layer bash dispatch on top of `docker compose` and `borgbackup`:
 The outer `controller.sh` is a thin shim that sources the outer `.env` then
 [controller.sh](controller.sh). Handles operations that span all services:
 `create <name> <template>`, `import <name...>`, `remove <name...>`, `rename <old> <new>`,
-`update`. Also exposes `version info [name...]` (one line per service: the images with updates)
+`update`, `update auto-enable|auto-disable`. Also exposes `version info [name...]` (one line per service: the images with updates)
 and `version upgrade [-y] [--ignore-health] [name...]` (`version upgrade` per service) via
 [controller_versions.sh](controller_versions.sh); without names they take every service in
 `$BASE_DIR/.backup`. Also exposes controller-scoped `borg` subcommands via
@@ -96,6 +96,11 @@ subcommand modules:
 - **Autobackup state** — list of services enrolled in nightly cron backup lives in `$BASE_DIR/.backup`
   (one service name per line). `docker_up` auto-enables, `docker_down` auto-disables. Legacy
   `BORG_AUTOBACKUP_SERVICES` env var is auto-migrated on first read.
+- **Auto-update** — when `$BASE_DIR/.autoupdate` exists (`update auto-enable`, off by default), the
+  nightly `borg autobackup-now` runs `controller.sh update` in its own process once all backups are
+  done, log in `$BASE_DIR/.update.log`. A failed update (failed pull, which leaves the old code,
+  or a prompt without terminal) is reported: when `NTFY_URL` (topic URL) is set in the outer `.env`, posts the log tail
+  there, with `NTFY_TOKEN` as bearer token if set.
 - **Restore preserves `.git`** — `borg restore-*` moves `.git` to `$BASE_DIR/.tmp/<service>/.git` before
   wiping and restores it after, so service-level git history survives a fresh restore. Pass `--clean-git`
   to skip the move-aside dance and let the backup's `.git` win.

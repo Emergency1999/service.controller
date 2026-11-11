@@ -38,6 +38,7 @@ Run in the services folder: `./controller.sh <command>`.
 | `remove <name...>` | Remove one or more services (asks to stop and back up first) |
 | `rename <old> <new>` | Rename a service (moves folder and borg repo) |
 | `update` | Update the controller to the latest version |
+| `update auto-enable` / `auto-disable` | Run `update` daily after the nightly autobackup (`.autoupdate`), failures to `.update.log` and ntfy (`NTFY_URL`, `NTFY_TOKEN`) |
 | `version info [name...]` | Show the images with updates of the services given, or of all in `.backup` |
 | `version upgrade [-y] [--ignore-health] [name...]` | Upgrade the images of the services given, or of all in `.backup`; asks per service unless `-y` |
 | `borg change-passphrase <name> <old-passphrase>` | Change the passphrase of a repository to the current one |

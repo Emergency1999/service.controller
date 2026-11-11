@@ -38,6 +38,8 @@ if [[ ! -f "$BASE_DIR/.env" ]]; then
   echo "BORG_REPO_BASE=">>"$BASE_DIR/.env"
   echo "BORG_PASSPHRASE=">>"$BASE_DIR/.env"
   echo "BORG_GENERAL_SUCCESS_URL=">>"$BASE_DIR/.env"
+  echo "NTFY_URL=">>"$BASE_DIR/.env"
+  echo "NTFY_TOKEN=">>"$BASE_DIR/.env"
 
   echo " -> adjust the $BASE_DIR_NAME/.env file as needed"
 fi
