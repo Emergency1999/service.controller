@@ -1,0 +1,13 @@
+# The Nextcloud apps load the previews of a whole folder at once through /index.php/core/preview
+# (or /core/preview with pretty URLs). Nextcloud answers 404 for a file that has no preview, so
+# a folder with a few such files sends more than ten different 404 paths within seconds, and
+# crowdsecurity/http-probing bans the user (Nextcloud iOS app, alko and mayfly, 2026-11-14/15).
+# GET requests with status 404 on the preview path are dropped before the scenarios; 404 on any
+# other path and 401/403 on the preview path still count.
+name: local/nextcloud-preview
+description: "Ignore Nextcloud preview requests of files that have no preview (404)"
+filter: "evt.Parsed.program startsWith 'traefik' && evt.Meta.http_verb == 'GET' && (evt.Meta.http_path startsWith '/index.php/core/preview' || evt.Meta.http_path startsWith '/core/preview')"
+whitelist:
+  reason: "nextcloud preview without preview"
+  expression:
+    - "int(evt.Meta.http_status) == 404"

@@ -57,6 +57,7 @@ services:
       - ./parsers/s02-enrich/zz-zammad-attachments.yaml:/etc/crowdsec/parsers/s02-enrich/zz-zammad-attachments.yaml:ro
       - ./parsers/s02-enrich/zz-onlyoffice-assets.yaml:/etc/crowdsec/parsers/s02-enrich/zz-onlyoffice-assets.yaml:ro
       - ./parsers/s02-enrich/zz-nextcloud-webdav.yaml:/etc/crowdsec/parsers/s02-enrich/zz-nextcloud-webdav.yaml:ro
+      - ./parsers/s02-enrich/zz-nextcloud-preview.yaml:/etc/crowdsec/parsers/s02-enrich/zz-nextcloud-preview.yaml:ro
       - ./volumes/crowdsec/config:/etc/crowdsec
       - ./volumes/crowdsec/data:/var/lib/crowdsec/data
     healthcheck:

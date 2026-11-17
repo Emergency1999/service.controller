@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-17 — Nextcloud preview whitelist
+- parsers/s02-enrich/zz-nextcloud-preview.yaml: new, whitelist parser that drops `GET` requests with status 404 to `/index.php/core/preview` and `/core/preview`: the Nextcloud iOS app loads the previews of a folder at once, Nextcloud answers 404 for files without a preview, and `crowdsecurity/http-probing` banned the user (alko and mayfly, 2026-11-14/15)
+- docker-compose.yml: crowdsec mounts that file read-only to `/etc/crowdsec/parsers/s02-enrich/`
+- note: after the sync, `up` recreates only crowdsec (new mount); check with `cscli parsers list`
+
 ## 2026-11-17 — Zammad attachment whitelist: aborted loads
 - parsers/s02-enrich/zz-zammad-attachments.yaml: also drops status 499 on `/api/v1/ticket_attachment/` (the browser aborted the inline load when the user left the ticket view); 49 such requests banned the campus NAT on akadis again (2026-11-17)
 - note: after the sync, `restart crowdsec` loads the parser
