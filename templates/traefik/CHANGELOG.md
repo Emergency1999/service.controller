@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-17 — Zammad attachment whitelist: aborted loads
+- parsers/s02-enrich/zz-zammad-attachments.yaml: also drops status 499 on `/api/v1/ticket_attachment/` (the browser aborted the inline load when the user left the ticket view); 49 such requests banned the campus NAT on akadis again (2026-11-17)
+- note: after the sync, `restart crowdsec` loads the parser
+
 ## 2026-11-11 — Nextcloud WebDAV whitelist
 - parsers/s02-enrich/zz-nextcloud-webdav.yaml: new, whitelist parser that drops successful (status < 400) requests under `/remote.php/dav/` and `/remote.php/webdav/`: a Nextcloud desktop client sync sends them in one burst and `crowdsecurity/http-crawl-non_statics` banned the user (alko, 2026-11-11)
 - docker-compose.yml: crowdsec mounts that file read-only to `/etc/crowdsec/parsers/s02-enrich/`
