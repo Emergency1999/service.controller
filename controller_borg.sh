@@ -76,6 +76,7 @@ borg_controller_autobackup-now() {
   if [[ ${#autobackup_services[@]} -eq 0 ]]; then
     echo "[CONTROLLER] No services configured for autobackup"
     controller_autoupdate
+    controller_autoupgrade
     return 0
   fi
 
@@ -141,6 +142,7 @@ borg_controller_autobackup-now() {
   fi
 
   controller_autoupdate
+  controller_autoupgrade
 
   if [[ $failed_services -gt 0 ]]; then
     return 1

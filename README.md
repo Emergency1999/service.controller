@@ -41,6 +41,7 @@ Run in the services folder: `./controller.sh <command>`.
 | `update auto-enable` / `auto-disable` | Run `update` daily after the nightly autobackup (`.autoupdate`), failures to `.update.log` and ntfy (`NTFY_URL`, `NTFY_TOKEN`) |
 | `version info [name...]` | Show the images with updates of the services given, or of all in `.backup` |
 | `version upgrade [-y] [--ignore-health] [name...]` | Upgrade the images of the services given, or of all in `.backup`; asks per service unless `-y` |
+| `version auto-enable` / `auto-disable` | Run `version upgrade -y` nightly after the autobackup and the auto-update (`.autoupgrade`), log in `.upgrade.log`, summary to ntfy (priority high on failures) |
 | `borg change-passphrase <name> <old-passphrase>` | Change the passphrase of a repository to the current one |
 | `borg autobackup-now` | Back up all enabled services now |
 | `borg list-repos` | List all borg repos under `$BORG_REPO_BASE`, including orphaned ones |

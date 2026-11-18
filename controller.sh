@@ -494,18 +494,43 @@ controller_autoupdate() {
     return 0
   fi
   echo "[CONTROLLER] Auto-update failed, see $BASE_DIR/.update.log"
-  if [[ -n "$NTFY_URL" ]]; then
-    local -a auth=()
-    [[ -n "$NTFY_TOKEN" ]] && auth=(-H "Authorization: Bearer $NTFY_TOKEN")
-    if curl -fsS -o /dev/null "${auth[@]}" \
-      -H "Title: Controller auto-update failed on $(hostname)" \
-      -H "Tags: warning" \
-      --data-binary "$(tail -n 20 "$BASE_DIR/.update.log")" \
-      "$NTFY_URL"; then
-      echo "[CONTROLLER] Sent ntfy message"
-    else
-      echo "[CONTROLLER] Failed to send ntfy message"
-    fi
+  controller_ntfy "Controller auto-update failed on $(hostname)" true "$(tail -n 20 "$BASE_DIR/.update.log")"
+}
+
+# Runs `version upgrade -y` of all services in .backup in its own process when
+# $BASE_DIR/.autoupgrade exists; called after the nightly auto-update. Takes the lock of
+# manual upgrades. Sends the summary to ntfy, with priority high when an upgrade failed.
+controller_autoupgrade() {
+  [[ -e "$BASE_DIR/.autoupgrade" ]] || return 0
+  local log="$BASE_DIR/.upgrade.log" summary problem=false
+  echo
+  echo "[CONTROLLER] Auto-upgrade, log in $log"
+  if flock /tmp/versioncontrol.lock "$BASE_DIR/controller.sh" version upgrade -y </dev/null >"$log" 2>&1; then
+    echo "[CONTROLLER] Auto-upgrade finished"
+  else
+    echo "[CONTROLLER] Auto-upgrade had problems, see $log"
+    problem=true
+  fi
+  summary=$(sed -n '/^\[CONTROLLER\] Upgrade summary:$/,$p' "$log")
+  [[ -n $summary ]] || summary=$(tail -n 20 "$log")
+  if $problem; then
+    controller_ntfy "Auto-upgrade problems on $(hostname)" true "$summary"
+  else
+    controller_ntfy "Auto-upgrade on $(hostname)" false "$summary"
+  fi
+}
+
+# controller_ntfy <title> <problem: true|false> <message>: posts to NTFY_URL when it is set,
+# with NTFY_TOKEN as bearer token if set; a problem gets priority high and the warning tag
+controller_ntfy() {
+  [[ -n "$NTFY_URL" ]] || return 0
+  local -a headers=(-H "Title: $1")
+  [[ -n "$NTFY_TOKEN" ]] && headers+=(-H "Authorization: Bearer $NTFY_TOKEN")
+  [[ $2 == true ]] && headers+=(-H "Tags: warning" -H "Priority: high")
+  if curl -fsS -o /dev/null "${headers[@]}" --data-binary "$3" "$NTFY_URL"; then
+    echo "[CONTROLLER] Sent ntfy message"
+  else
+    echo "[CONTROLLER] Failed to send ntfy message"
   fi
 }
 

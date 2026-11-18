@@ -64,7 +64,7 @@ version_controller_info() {
 
 version_controller_commands+=([upgrade]="[-y] [--ignore-health] [name...]:Upgrade the images of the services given, or of all in .backup; each asks which unless -y, which ends with a summary; --ignore-health only warns when one is not healthy")
 version_controller_upgrade() {
-  local service answer="" health="" log
+  local service answer="" health="" log rc failed=false
   local -a services summary_lines=()
   while [[ $1 == "-y" || $1 == "--ignore-health" ]]; do
     if [[ $1 == "-y" ]]; then
@@ -90,7 +90,8 @@ version_controller_upgrade() {
       continue
     fi
     # the last line says how the upgrade ended
-    "$BASE_DIR/$service/service.sh" version upgrade -y $health 2>&1 | tee "$log" || true
+    "$BASE_DIR/$service/service.sh" version upgrade -y $health 2>&1 | tee "$log" && rc=${PIPESTATUS[0]} || rc=1
+    [[ $rc -eq 0 ]] || failed=true
     summary_lines+=("$service: $(grep -v '^[[:space:]]*$' "$log" | tail -n1 | sed 's/^\[VERSION\] *//; s/^ *//')")
   done
   rm -f "$log"
@@ -101,4 +102,18 @@ version_controller_upgrade() {
   for line in "${summary_lines[@]}"; do
     echo "- $line"
   done
+  # with -y the exit code says whether every upgrade went through
+  ! $failed
+}
+
+version_controller_commands+=([auto-enable]=":Upgrade all services in .backup every night after the autobackup and the auto-update")
+version_controller_auto-enable() {
+  touch "$BASE_DIR/.autoupgrade"
+  echo "[CONTROLLER] Auto-upgrade enabled: runs after the nightly autobackup and auto-update, log in $BASE_DIR/.upgrade.log"
+}
+
+version_controller_commands+=([auto-disable]=":Stop the nightly upgrade of all services")
+version_controller_auto-disable() {
+  rm -f "$BASE_DIR/.autoupgrade"
+  echo "[CONTROLLER] Auto-upgrade disabled"
 }

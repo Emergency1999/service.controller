@@ -59,7 +59,7 @@ The outer `controller.sh` is a thin shim that sources the outer `.env` then
 [controller.sh](controller.sh). Handles operations that span all services:
 `create <name> <template>`, `import <name...>`, `remove <name...>`, `rename <old> <new>`,
 `update`, `update auto-enable|auto-disable`. Also exposes `version info [name...]` (one line per service: the images with updates)
-and `version upgrade [-y] [--ignore-health] [name...]` (`version upgrade` per service) via
+and `version upgrade [-y] [--ignore-health] [name...]` (`version upgrade` per service), `version auto-enable|auto-disable` via
 [controller_versions.sh](controller_versions.sh); without names they take every service in
 `$BASE_DIR/.backup`. Also exposes controller-scoped `borg` subcommands via
 [controller_borg.sh](controller_borg.sh) — `borg change-passphrase`, `borg autobackup-now`
@@ -101,6 +101,13 @@ subcommand modules:
   done, log in `$BASE_DIR/.update.log`. A failed update (failed pull, which leaves the old code,
   or a prompt without terminal) is reported: when `NTFY_URL` (topic URL) is set in the outer `.env`, posts the log tail
   there, with `NTFY_TOKEN` as bearer token if set.
+- **Auto-upgrade** — when `$BASE_DIR/.autoupgrade` exists (`version auto-enable`, off by default),
+  the nightly `borg autobackup-now` runs `controller.sh version upgrade -y` (every service in
+  `.backup` with a `.version`) after the auto-update, in its own process under
+  `flock /tmp/versioncontrol.lock`, log in `$BASE_DIR/.upgrade.log`. `version upgrade -y` exits
+  non-zero when an upgrade of a service failed. When `NTFY_URL` is set, the upgrade summary is
+  posted there every night, with priority high and the warning tag when an upgrade or the run
+  failed.
 - **Restore preserves `.git`** — `borg restore-*` moves `.git` to `$BASE_DIR/.tmp/<service>/.git` before
   wiping and restores it after, so service-level git history survives a fresh restore. Pass `--clean-git`
   to skip the move-aside dance and let the backup's `.git` win.
@@ -166,6 +173,7 @@ subcommand modules:
 ./controller.sh update                     # git pull .controller/ + run update.sh
 ./controller.sh version info [name...]     # images with updates, of all services in .backup without names
 ./controller.sh version upgrade [-y] [--ignore-health] [name...]  # version upgrade of each, asks per service unless -y
+./controller.sh version auto-enable        # nightly version upgrade -y after the autobackup (auto-disable: off)
 
 # Run a service (inside e.g. test/)
 ./test/service.sh help
