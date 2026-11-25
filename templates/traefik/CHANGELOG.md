@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-25 — CrowdSec whitelists: one folder mount
+- five files moved from parsers/s02-enrich/ to parsers/: zz-traefik-bouncer-self-403, zz-zammad-attachments, zz-onlyoffice-assets, zz-nextcloud-webdav, zz-nextcloud-preview; zz-immich-thumbnails.yaml is new
+- docker-compose.yml: one mount `./parsers:/etc/crowdsec/parsers/s02-enrich/custom:ro` replaces the five per-file mounts; crowdsec >= 1.6.3 loads subfolders of a stage as local items of that stage, a new parser needs no compose change any more
+- note for existing hosts: before the `up`, remove the empty mount-point files the old per-file mounts left in `volumes/crowdsec/config/parsers/s02-enrich/zz-*.yaml` (otherwise they load as nameless empty parsers); then `up` recreates crowdsec; check that `cscli parsers list` shows all six as local
+
+## 2026-11-25 — Immich thumbnail whitelist
+- parsers/zz-immich-thumbnails.yaml: new, whitelist parser that drops 404 requests to `/api/assets/<uuid>/thumbnail`: Immich answers 404 for thumbnails of some edited assets, 12 404s within 95 s and `crowdsecurity/http-probing` banned a campus IP (alko); 401 and 403 still count
+- docker-compose.yml: no own mount, the `./parsers` folder mount covers the file
+- note: after the sync, `restart crowdsec` loads the parser (`up` is needed once for the folder mount, see the entry above); check with `cscli parsers list`
+
 ## 2026-11-17 — Nextcloud preview whitelist
 - parsers/s02-enrich/zz-nextcloud-preview.yaml: new, whitelist parser that drops `GET` requests with status 404 to `/index.php/core/preview` and `/core/preview`: the Nextcloud iOS app loads the previews of a folder at once, Nextcloud answers 404 for files without a preview, and `crowdsecurity/http-probing` banned the user (alko and mayfly, 2026-11-14/15)
 - docker-compose.yml: crowdsec mounts that file read-only to `/etc/crowdsec/parsers/s02-enrich/`

@@ -1,0 +1,13 @@
+# Immich answers 404 for thumbnails of some edited assets (`?edited=true`), and the web UI requests a
+# dozen of them within seconds while scrolling the timeline.
+# crowdsecurity/http-probing counts the 404s as probing and bans the user, and with a campus NAT
+# everyone behind it. 404 on the thumbnail path is dropped before the scenarios; 401 and 403 on
+# that path still count. The path shape (`/api/assets/<uuid>/thumbnail`) is Immich-specific, so no
+# host filter.
+name: local/immich-thumbnails
+description: "Ignore Immich thumbnail requests that return 404 (edited assets)"
+filter: "evt.Parsed.program startsWith 'traefik' && evt.Meta.http_path matches '^/api/assets/[0-9a-f-]{36}/thumbnail'"
+whitelist:
+  reason: "immich asset thumbnail"
+  expression:
+    - "int(evt.Meta.http_status) == 404"
